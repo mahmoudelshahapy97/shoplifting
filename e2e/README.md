@@ -36,6 +36,7 @@ They run in order on one worker and form one story. Each restores what it change
 | `06-demo-walkthrough.spec.js` | A recorded tour of every screen and tab, admin then viewer (its own `demo` project; not a correctness check) |
 | `07-workspaces.spec.js` | Create a workspace, scope a camera to it, non-member isolation, delete cascade |
 | `08-detection.spec.js` | A test alert yields an incident with a JPEG frame and an mp4 clip answering Range requests. Then the pose model and classifier raise an incident on the shopper in `shop_lifter_0.mp4` by themselves |
+| `09-notifications.spec.js` | A test alert pops up in the open console over the notification socket, raises the badge, lists in the bell and opens its incident. The viewer was told too, and still has it unread. Mark all read clears the badge |
 
 `08` needs the seeded "Electronics Aisle" camera's worker connected (the supervisor starts it
 within seconds). A real detection takes about 10 s of the shopper on screen plus the model load.

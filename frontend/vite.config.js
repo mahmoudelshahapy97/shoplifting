@@ -21,7 +21,8 @@ export default defineConfig(({ mode }) => {
   const target = env.VITE_API_TARGET || "http://127.0.0.1:8004";
 
   const proxy = {
-    "/api": { target, changeOrigin: true },
+    // ws: the notification socket (/api/v1/notifications/ws) upgrades here.
+    "/api": { target, changeOrigin: true, ws: true },
     // The probe the health badge polls, outside the versioned prefix.
     "/health": { target, changeOrigin: true },
     // FastAPI's own docs, reachable from the console without the operator

@@ -33,6 +33,7 @@ from app.services.camera_service import camera_service
 from app.services.clip_recorder import ClipRecorder, FinishedClip, encode_mp4, resize_max_width
 from app.services.event_service import event_service
 from app.services.model_registry import model_registry
+from app.services.notification_service import notification_service
 from app.services.object_store import clip_key, object_store
 from app.services.pose_tracker import PersonDetection, PoseTracker
 from app.services.rtsp_reader import RTSPReader
@@ -336,6 +337,11 @@ class CameraWorker:
                 self.events_emitted += 1
                 if config.clip_enabled:
                     self.clips.start(stored["event_id"], now)
+                try:
+                    await notification_service.notify_incident(stored, self.name)
+                except Exception as e:
+                    # The incident is recorded either way; the bell is a convenience.
+                    logger.warning("Camera %s: could not notify incident %s: %s", self.name, stored["event_id"], e)
 
         for clip in self.clips.pop_finished(now):
             self._spawn_clip(clip)

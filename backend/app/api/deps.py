@@ -63,6 +63,13 @@ async def _load_active_user(payload: Optional[Dict[str, Any]]) -> Dict[str, Any]
     return user
 
 
+async def user_for_token(token: Optional[str]) -> Dict[str, Any]:
+    """The active account behind an access token, for callers that cannot use
+    the Authorization header: the notification socket, which is handed its
+    token in its first message. Raises the same 401 as the guards."""
+    return await _load_active_user(decode_token(token, "access"))
+
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(security),
 ) -> Dict[str, Any]:

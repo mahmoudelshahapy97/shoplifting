@@ -5,6 +5,7 @@ import AuthLayout from "../layouts/AuthLayout";
 import { Loading } from "../components/DataStates";
 import { RequireAuth } from "./RequireAuth";
 import { WorkspaceProvider } from "../workspace/WorkspaceContext";
+import { NotificationProvider } from "../notifications/NotificationContext";
 
 // Code-split per route: the dashboard is the landing screen and has no business
 // downloading the analytics charts and the camera editor before it can paint.
@@ -37,7 +38,9 @@ export function AppRouter({ mode, onToggleMode }) {
             element={
               <RequireAuth>
                 <WorkspaceProvider>
-                  <AppLayout mode={mode} onToggleMode={onToggleMode} />
+                  <NotificationProvider>
+                    <AppLayout mode={mode} onToggleMode={onToggleMode} />
+                  </NotificationProvider>
                 </WorkspaceProvider>
               </RequireAuth>
             }

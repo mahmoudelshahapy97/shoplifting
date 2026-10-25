@@ -5,6 +5,7 @@ from app.api.routes import (
     auth_router,
     camera_router,
     event_router,
+    notification_router,
     system_router,
     user_router,
     workspace_router,
@@ -19,5 +20,6 @@ router.include_router(user_router.router)
 router.include_router(workspace_router.router)
 router.include_router(camera_router.router)
 router.include_router(event_router.router)
+router.include_router(notification_router.router)
 router.include_router(system_router.router)
 router.include_router(analytics_router.router)

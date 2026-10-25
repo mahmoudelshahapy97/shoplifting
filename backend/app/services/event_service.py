@@ -88,7 +88,8 @@ class EventService:
             )
             VALUES ($1, $2, $3, $4, $5, $6::jsonb, $7, $8, $9, $10)
             ON CONFLICT (camera_id, track_key) DO NOTHING
-            RETURNING event_id, camera_id, track_key, confidence, severity, detected_at, status
+            RETURNING event_id, camera_id, workspace_id, track_key, confidence, severity,
+                      detection_method, detected_at, status
             """,
             (
                 camera_id,

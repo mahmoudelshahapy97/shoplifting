@@ -340,6 +340,35 @@ DO $$ BEGIN
 EXCEPTION WHEN duplicate_object THEN NULL;
 END $$;
 
+-- ---------------------------------------------------------------------------
+-- notification — an incident, addressed to one account
+--
+-- After InsightEye's notifications table. Raising an incident writes one row
+-- for every active account that can see its workspace (its members, plus every
+-- admin) and pushes it to their open consoles (app/services/notification_service.py).
+-- read_at is per account, so one operator opening an alert does not clear it
+-- for the rest. Rows go with their incident, and age out after
+-- NOTIFICATION_RETENTION_DAYS.
+-- ---------------------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS notification (
+    notification_id  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    user_id          UUID NOT NULL REFERENCES app_user (user_id) ON DELETE CASCADE,
+    workspace_id     UUID NOT NULL REFERENCES workspace (workspace_id) ON DELETE CASCADE,
+    event_id         UUID NOT NULL REFERENCES shoplifting_event (event_id) ON DELETE CASCADE,
+    camera_id        UUID NOT NULL REFERENCES camera (camera_id) ON DELETE CASCADE,
+    severity         TEXT NOT NULL CHECK (severity IN ('low', 'medium', 'high', 'critical')),
+    title            TEXT NOT NULL,
+    message          TEXT NOT NULL,
+    created_at       TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    read_at          TIMESTAMPTZ,
+    UNIQUE (user_id, event_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_notification_user_time ON notification (user_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_notification_unread ON notification (user_id) WHERE read_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_notification_event ON notification (event_id);
+CREATE INDEX IF NOT EXISTS idx_notification_created ON notification (created_at);
+
 COMMIT;
 
 -- ---------------------------------------------------------------------------

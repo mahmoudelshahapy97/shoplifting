@@ -33,6 +33,7 @@ import MenuBookIcon from "@mui/icons-material/MenuBook";
 import { health } from "../api/endpoints";
 import { usePolling } from "../hooks/usePolling";
 import { useAuth } from "../auth/AuthContext";
+import NotificationBell from "../components/NotificationBell";
 import UserMenu from "../components/UserMenu";
 import WorkspaceSwitcher from "../components/WorkspaceSwitcher";
 import { EmptyState, ErrorState, Loading } from "../components/DataStates";
@@ -246,6 +247,7 @@ export function AppLayout({ mode, onToggleMode }) {
           <Stack direction="row" spacing={1.5} alignItems="center">
             <WorkspaceSwitcher />
             <BackendStatus />
+            <NotificationBell />
             <Tooltip title={mode === "dark" ? "Switch to light" : "Switch to dark"}>
               <IconButton onClick={onToggleMode} aria-label="Toggle colour mode">
                 {mode === "dark" ? <LightModeIcon /> : <DarkModeIcon />}

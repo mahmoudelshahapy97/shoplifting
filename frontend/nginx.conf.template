@@ -52,6 +52,20 @@ server {
         proxy_set_header  X-Forwarded-Proto $scheme;
     }
 
+    # Notification socket: a WebSocket upgrade, held open while the console is.
+    # The api pings an idle socket every NOTIFICATION_WS_PING_S (25 s), well
+    # inside this read timeout.
+    location = /api/v1/notifications/ws {
+        proxy_pass         ${SL_API_URL};
+        proxy_set_header   Upgrade    $http_upgrade;
+        proxy_set_header   Connection "upgrade";
+        proxy_read_timeout 1h;
+        proxy_set_header   Host              $host;
+        proxy_set_header   X-Real-IP         $remote_addr;
+        proxy_set_header   X-Forwarded-For   $proxy_add_x_forwarded_for;
+        proxy_set_header   X-Forwarded-Proto $scheme;
+    }
+
     location /api/ {
         proxy_pass       ${SL_API_URL};
         proxy_set_header Host              $host;

@@ -242,6 +242,18 @@ class Settings(BaseSettings):
     minio_secure: bool = False
 
     # =========================================================================
+    # NOTIFICATIONS
+    # =========================================================================
+    # Every incident is addressed to each account that can see its workspace
+    # and pushed to their open consoles (app/services/notification_service.py).
+    notifications_enabled: bool = True
+    # Incidents below this severity are recorded but notify no one.
+    notification_min_severity: Literal["low", "medium", "high", "critical"] = "low"
+    # An idle socket gets a ping this often, which also re-checks the account
+    # and closes the socket once the access token it opened with expires.
+    notification_ws_ping_s: float = 25.0
+
+    # =========================================================================
     # RETENTION
     # =========================================================================
     retention_enabled: bool = True
@@ -250,6 +262,7 @@ class Settings(BaseSettings):
     clip_max_total_mb: int = 5120
     # Probability samples are only read in aggregate; older ones are dropped.
     observation_retention_days: int = 30
+    notification_retention_days: int = 30
 
 
 config = Settings()

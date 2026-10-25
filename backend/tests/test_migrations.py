@@ -29,7 +29,7 @@ def test_discover_orders_by_name_and_ignores_other_files(tmp_path):
 
 
 def test_repo_migrations_are_numbered_uniquely():
-    # Empty while schema.sql is still the first release; never two of a number.
+    # Never two of a number: the runner orders by file name.
     assert migrations_dir().is_dir(), "database/migrations is missing"
     versions = [m.version.split("_", 1)[0] for m in discover(migrations_dir())]
     assert len(versions) == len(set(versions))

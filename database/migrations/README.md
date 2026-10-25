@@ -13,4 +13,6 @@ in `schema_migration` (`app/core/migrations.py`; list them with
 against a schema that already has its change, so write them idempotently
 (`IF NOT EXISTS`, `DO $$ ... EXCEPTION WHEN duplicate_object ...`).
 
-There are none yet: this app started from the current schema.
+| File | Change |
+|---|---|
+| `001_notifications.sql` | `notification`: an incident addressed to each account that can see it |

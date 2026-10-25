@@ -19,6 +19,7 @@ from app.core.database import (
 from app.core.logging_config import setup_logging
 from app.core.migrations import run_migrations
 from app.services import retention
+from app.services.notification_service import notification_service
 from app.services.stream_manager import stream_manager
 from app.services.user_service import user_service
 
@@ -136,6 +137,7 @@ async def health_check():
             "connected": sum(1 for w in workers if w["connected"]),
             "supervisor_running": stream_manager.supervisor_running,
         },
+        "notification_sockets": notification_service.hub.connections(),
     }
 
 

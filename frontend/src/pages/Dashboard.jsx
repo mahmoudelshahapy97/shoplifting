@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link as RouterLink } from "react-router-dom";
 import Box from "@mui/material/Box";
 import Button from "@mui/material/Button";
@@ -27,6 +28,8 @@ import { EnabledChip, EventStatusChip, SeverityChip } from "../components/Status
 import { analytics, cameras, events } from "../api/endpoints";
 import { useAsync } from "../hooks/useAsync";
 import { usePolling } from "../hooks/usePolling";
+import { useNotifications } from "../notifications/NotificationContext";
+import { useWorkspace } from "../workspace/WorkspaceContext";
 import { POLL_INTERVAL_MS, REALTIME_POLL_MS } from "../utils/constants";
 import { describePlace, formatMoney, formatNumber, formatScore, fromNow } from "../utils/format";
 
@@ -132,6 +135,17 @@ export default function Dashboard() {
   const recent = usePolling(({ signal }) => events.list({ per_page: 8 }, { signal }), {
     intervalMs: POLL_INTERVAL_MS * 4,
   });
+  // A pushed notification for this workspace means a new incident: show it now
+  // rather than at the next poll.
+  const { latest } = useNotifications();
+  const { active } = useWorkspace();
+  const refreshStats = stats.refresh;
+  const refreshRecent = recent.refresh;
+  useEffect(() => {
+    if (!latest || latest.workspace_id !== active?.workspace_id) return;
+    refreshStats();
+    refreshRecent();
+  }, [latest, active, refreshStats, refreshRecent]);
   const today = useAsync(
     ({ signal }) => analytics.summary({ days: 1, tz: TIMEZONE }, { signal }),
     []

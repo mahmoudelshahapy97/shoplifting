@@ -9,7 +9,8 @@ It runs over both places a clip can live: MinIO (``clip_key``) and, for clips
 saved while MinIO was unreachable, the clip directory on disk (``clip_path``);
 each gets the full budget. Incident rows and frames are kept: only the video
 goes. Observations (one probability sample per person every few seconds) older
-than OBSERVATION_RETENTION_DAYS are deleted in the same pass.
+than OBSERVATION_RETENTION_DAYS, and notifications older than
+NOTIFICATION_RETENTION_DAYS, are deleted in the same pass.
 
 Turn it off with RETENTION_ENABLED=false where an external archiver owns the data.
 """
@@ -23,6 +24,7 @@ from typing import List, Optional, Tuple
 
 from app.core.config import config
 from app.core.database import db_manager
+from app.services.notification_service import notification_service
 from app.services.object_store import object_store
 
 logger = logging.getLogger(__name__)
@@ -35,12 +37,14 @@ class PurgeReport:
     clips_deleted: int = 0
     bytes_reclaimed: int = 0
     observations_deleted: int = 0
+    notifications_deleted: int = 0
 
     def as_dict(self) -> dict:
         return {
             "clips_deleted": self.clips_deleted,
             "mb_reclaimed": round(self.bytes_reclaimed / (1024 * 1024), 1),
             "observations_deleted": self.observations_deleted,
+            "notifications_deleted": self.notifications_deleted,
         }
 
 
@@ -103,7 +107,8 @@ async def purge_old_clips() -> PurgeReport:
     await _purge_stored_clips(report)
     await _purge_disk_clips(report)
     await _purge_observations(report)
-    if report.clips_deleted or report.observations_deleted:
+    await _purge_notifications(report)
+    if report.clips_deleted or report.observations_deleted or report.notifications_deleted:
         logger.info("Retention pass: %s", report.as_dict())
     return report
 
@@ -117,6 +122,15 @@ async def _purge_observations(report: PurgeReport) -> None:
         ) or 0
     except Exception:
         logger.exception("Observation retention pass failed")
+
+
+async def _purge_notifications(report: PurgeReport) -> None:
+    try:
+        report.notifications_deleted = await notification_service.purge_older_than(
+            config.notification_retention_days
+        )
+    except Exception:
+        logger.exception("Notification retention pass failed")
 
 
 async def _purge_stored_clips(report: PurgeReport) -> None:

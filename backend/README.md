@@ -73,7 +73,8 @@ Every detector setting is global in `.env`, and overridable per camera through `
 ## API (`/api/v1`)
 
 All data routes are scoped to the workspace named by `X-Workspace-Id`. Without the header, the
-caller's first workspace is used. A resource in another workspace answers 404.
+caller's first workspace is used. A resource in another workspace answers 404. Notifications are
+the exception: they belong to the account and cover every workspace it can see.
 
 | Area | Routes | Role |
 |---|---|---|
@@ -88,6 +89,8 @@ caller's first workspace is used. A resource in another workspace answers 404.
 | | `PATCH /events/{id}`: `status`, `action_taken`, `items_stolen`, `estimated_value`, `description` | operator |
 | | `DELETE /events?…&confirm=true`: the matching incidents and their media | admin |
 | Analytics | `GET /analytics/summary`, `/executive-summary`, `/hotspots`, `/high-value`, `/traffic`, `/confidence-audit`, `/actions`, `/operational-efficiency`, `/real-time` | viewer |
+| Notifications | `GET /notifications` (`unread_only`, `before`, `limit`), `/notifications/unread-count`; `POST /notifications/read` (`notification_ids`, or none for all) | viewer |
+| | `WS /notifications/ws`: first message `{"type": "auth", "token": …}`; then `hello`, `notification`, `read`, `resync`, `ping`; closes 4401 to re-authenticate | viewer |
 | System | `GET /system/workers`, `/system/config`; `GET /health` (outside the prefix) | viewer |
 
 **Filters.**
@@ -144,6 +147,7 @@ docker compose run --rm --no-deps -v ./backend/tests:/app/tests api pytest -q
 | `test_model.py` | weights | Logits, probabilities and features equal InsightEye's on the same inputs; batching; missing weights |
 | `test_integration.py` | Postgres (+ MinIO) | Cameras and hierarchy, health, incidents and media (and their fallback), sessions, triage stamps and scoping, filters, delete, every analytics report, retention |
 | `test_workspaces.py` | Postgres | Isolation by list, id, media, write and analytics; admin routes and cascade |
+| `test_notifications.py` | Postgres | Who is told, severity floor, push and resync, read marks per account, paging, leaving a workspace, cascade and retention; the socket's auth, expiry and deactivation over a real uvicorn |
 | `test_auth.py`, `test_otp.py`, `test_migrations.py`, `test_clip_recorder.py`, `test_supervisor.py`, `test_utils.py` | partly | The platform layer, plus annotation |
 
 The DB-backed modules skip themselves when no database is reachable.

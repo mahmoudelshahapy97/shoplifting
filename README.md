@@ -14,7 +14,7 @@ RTSP camera → YOLO pose + ByteTrack → per-person window of 120 pose samples 
 
 | Tier | Where | What |
 |---|---|---|
-| Frontend | [frontend/](frontend/) | React 18 + MUI v6 console: dashboard, incidents, analytics, cameras, admin |
+| Frontend | [frontend/](frontend/) | React 18 + MUI v6 console: dashboard, incidents, analytics, cameras, admin, live notifications |
 | Backend | [backend/](backend/) | FastAPI. Camera workers, the detector, the incident and analytics API, auth and workspaces |
 | Database | [database/](database/) | `schema.sql` (baseline), `seed.sql` (demo data), `migrations/`, `queries.sql` |
 | e2e | [e2e/](e2e/) | Playwright suite against the running stack, including a real detection |
@@ -28,6 +28,7 @@ RTSP camera → YOLO pose + ByteTrack → per-person window of 120 pose samples 
 | `shoplifting_service.py` + `shoplifting_router.py` (24 endpoints) | [`event_router.py`](backend/app/api/routes/event_router.py), [`analytics_router.py`](backend/app/api/routes/analytics_router.py), [`camera_router.py`](backend/app/api/routes/camera_router.py) |
 | `database/insighteye-shoplifting-*.sql` | [`database/schema.sql`](database/schema.sql) |
 | `Insight-eye/src/Pages/Shoplifting/*`, `Components/Charts/*` | [`pages/Events.jsx`](frontend/src/pages/Events.jsx), [`EventDetail.jsx`](frontend/src/pages/EventDetail.jsx), [`Analytics.jsx`](frontend/src/pages/Analytics.jsx), [`Dashboard.jsx`](frontend/src/pages/Dashboard.jsx) |
+| `notification_service.py`, `/ws/notifications`, `Navbar/NotificationMenu.js` | [`notification_service.py`](backend/app/services/notification_service.py), [`notification_router.py`](backend/app/api/routes/notification_router.py), [`NotificationBell.jsx`](frontend/src/components/NotificationBell.jsx) |
 | `models/shoplifting.pt`, `models/yolo26m-pose.pt` | [`backend/models/`](backend/models/) |
 
 What changed on the way, and why:
@@ -99,6 +100,24 @@ The 3 fps rate is the rate InsightEye effectively ran at. It is also the rate wh
 best separate the shoplifting clip from ordinary footage: check with
 [`backend/tools/eval_shoplifting.py`](backend/tools/eval_shoplifting.py) before changing it.
 
+## Notifications
+
+Every incident, test alerts included, is addressed to each active account that can see its
+workspace: the workspace's members and every admin. Each account gets its own `notification` row,
+so reading one marks it read for that account only. The row is pushed straight to that account's
+open consoles over `/api/v1/notifications/ws`. The bell in the header shows the unread count and
+the latest 20. Each push also raises a popup with a **View** button, and opening a notification
+switches to its workspace and opens the incident. Each browser can also opt in to desktop alerts,
+which fire while the tab is in the background.
+
+- **Socket:** it is authenticated by the access token in its first message, never by the URL or
+  the cookie. It closes with code 4401 when the token expires or the account is deactivated; the
+  console then refreshes its token and reconnects. While the socket is down, the console polls the
+  unread count every 30 s instead.
+- **Settings:** `NOTIFICATIONS_ENABLED` turns it all off. `NOTIFICATION_MIN_SEVERITY` keeps
+  low-severity incidents out of the bell, though they are still recorded. Rows go with their
+  incident, and retention drops them after `NOTIFICATION_RETENTION_DAYS`.
+
 ## Object storage (MinIO)
 
 | What | Key | Recorded in |
@@ -108,14 +127,15 @@ best separate the shoplifting clip from ordinary footage: check with
 
 If MinIO is unreachable, the frame is written into `frame_jpeg` and the clip stays under
 `backend/data/clips/`. Retention trims clips older than `CLIP_RETENTION_DAYS`, or beyond
-`CLIP_MAX_TOTAL_MB`, and probability samples older than `OBSERVATION_RETENTION_DAYS`. Deleting a
+`CLIP_MAX_TOTAL_MB`, probability samples older than `OBSERVATION_RETENTION_DAYS`, and
+notifications older than `NOTIFICATION_RETENTION_DAYS`. Deleting a
 camera or a workspace deletes its media.
 
 ## Tests
 
 | Suite | Command | What |
 |---|---|---|
-| Backend (147) | `docker compose run --rm -v ./backend/tests:/app/tests api pytest -q` | Detector logic, the model's parity with InsightEye, persistence, triage, every analytics report, workspaces, auth, OTP, clips, supervisor |
-| e2e (61) | `./e2e/run.sh` after loading the seed | The console end to end, including a test alert and a real classifier incident on the test clip |
+| Backend (168) | `docker compose run --rm -v ./backend/tests:/app/tests api pytest -q` | Detector logic, the model's parity with InsightEye, persistence, triage, every analytics report, workspaces, auth, OTP, notifications and their socket, clips, supervisor |
+| e2e (64) | `./e2e/run.sh` after loading the seed | The console end to end, including a test alert, its live notification, and a real classifier incident on the test clip |
 
 See [backend/README.md](backend/README.md) and [e2e/README.md](e2e/README.md) for the details.

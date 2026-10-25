@@ -4,8 +4,9 @@
  * The specs are ordered files run by a single worker (see playwright.config.js),
  * so they form one story: 01 checks the shell, 02 registers a camera, 03 triages
  * the incidents the seed provides, 04 reads every analytics report, 05 tears
- * down what 02 created, 07 checks workspace isolation, and 08 watches the real
- * detector raise an incident from the test clip. State that has to survive
+ * down what 02 created, 07 checks workspace isolation, 08 watches the real
+ * detector raise an incident from the test clip, and 09 sees that incident's
+ * notification arrive live. State that has to survive
  * between files is re-read from the API rather than kept in a module variable,
  * because each spec file gets a fresh module registry.
  */

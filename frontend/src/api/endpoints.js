@@ -1,10 +1,10 @@
-import client, { mediaUrl } from "./client";
+import client, { API_BASE, mediaUrl } from "./client";
 
 /**
  * One function per backend route, so no component builds a URL by hand.
  *
- * Mirrors app/api/routes/: auth, user, workspace, camera, event, analytics
- * and system routers, all under /api/v1.
+ * Mirrors app/api/routes/: auth, user, workspace, camera, event, notification,
+ * analytics and system routers, all under /api/v1.
  */
 
 // --- health and system ----------------------------------------------------
@@ -120,6 +120,25 @@ export const events = {
   clipUrl: (id) => mediaUrl(`/events/${id}/clip`),
 };
 
+// --- notifications -----------------------------------------------------------
+// Addressed to the signed-in account across its workspaces, so these calls do
+// not depend on the active one. New ones arrive over the socket (socketUrl).
+export const notifications = {
+  /** {unread_only, before, limit} -> {notifications, unread}. */
+  list: (params, opts) => client.get("/notifications", { params, ...opts }).then((r) => r.data),
+  unreadCount: (opts) => client.get("/notifications/unread-count", opts).then((r) => r.data),
+  /** Marks the listed ids read, or every unread one when ids is left out. */
+  markRead: (ids) =>
+    client
+      .post("/notifications/read", ids ? { notification_ids: ids } : {})
+      .then((r) => r.data),
+  /** ws(s)://<host>/api/v1/notifications/ws; the token goes in the first message. */
+  socketUrl: () => {
+    const base = /^https?:/.test(API_BASE) ? API_BASE : `${window.location.origin}${API_BASE}`;
+    return `${base.replace(/^http/, "ws")}/notifications/ws`;
+  },
+};
+
 // --- analytics ------------------------------------------------------------
 // Each takes {days, tz} plus the incident filters, and answers {success, data}.
 const report = (path) => (params, opts) =>
@@ -145,5 +164,6 @@ export default {
   system,
   cameras,
   events,
+  notifications,
   analytics,
 };
