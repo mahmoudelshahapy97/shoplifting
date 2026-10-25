@@ -1,0 +1,15 @@
+# ByteTrack tuned for abandoned-object detection at ~5 processed fps.
+#
+# A bag left on the floor is small, often half in shadow, and COCO models score
+# it 0.1-0.3. The stock thresholds (0.25) never start a track for it, and the
+# stock buffer (30 frames, calibrated for 30 fps) forgets it after 6 s at our
+# rate, so every reappearance came back with a new id and reset its timers.
+# Keep YOLO_CONFIDENCE at or below track_low_thresh, or the second-stage match
+# never sees the weak detections.
+tracker_type: bytetrack
+track_high_thresh: 0.15
+track_low_thresh: 0.05
+new_track_thresh: 0.15
+track_buffer: 150
+match_thresh: 0.8
+fuse_score: True

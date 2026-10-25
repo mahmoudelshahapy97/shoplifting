@@ -1,0 +1,78 @@
+# Backend-only stack: Postgres + API (+ the test RTSP server on demand), for
+# iterating on detection without the console. Frames stay in Postgres and clips
+# on disk, since there is no MinIO here; ../docker-compose.yml is the full stack.
+#
+# Explicit project name: without it compose derives one from the directory
+# ("backend"), which collides with any other stack started from a folder of the
+# same name. It also matches ../docker-compose.yml, so the two share one pgdata
+# volume and one API image rather than running against two separate databases.
+name: shoplifting
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-shoplifting_db}
+      POSTGRES_USER: ${POSTGRES_USER:-shoplifting}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-shoplifting_pass}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ../database/schema.sql:/docker-entrypoint-initdb.d/001_schema.sql:ro
+      - ../database:/sql:ro
+    ports:
+      - "${POSTGRES_HOST_PORT:-5437}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-shoplifting} -d ${POSTGRES_DB:-shoplifting_db}"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  api:
+    build: .
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      DB_HOST: postgres
+      DB_PORT: 5432
+    depends_on:
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./models:/app/models
+      - ./logs:/app/logs
+      - ./data:/app/data
+      # Versioned schema changes, applied at startup (app/core/migrations.py).
+      - ../database/migrations:/app/migrations:ro
+    ports:
+      - "${API_HOST_PORT:-8004}:8000"
+    # The pose model and classifier run on the GPU (MODEL_DEVICE=cuda in .env).
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+
+  # Republishes the test clip as RTSP so the camera path is testable without
+  # physical hardware:  docker compose --profile testing up -d mediamtx
+  # Register the camera as rtsp://mediamtx:8554/shoplifter0.
+  mediamtx:
+    image: bluenviron/mediamtx:latest-ffmpeg
+    profiles: ["testing"]
+    restart: unless-stopped
+    environment:
+      MTX_PROTOCOLS: tcp
+      MTX_PATHS_SHOPLIFTER0_RUNONDEMAND: >-
+        ffmpeg -re -stream_loop -1 -i /videos/shop_lifter_0.mp4 -c copy -f rtsp
+        rtsp://localhost:8554/shoplifter0
+      MTX_PATHS_SHOPLIFTER0_RUNONDEMANDRESTART: "yes"
+    volumes:
+      - ./videos:/videos:ro
+    ports:
+      - "${RTSP_HOST_PORT:-8557}:8554"
+
+volumes:
+  pgdata:

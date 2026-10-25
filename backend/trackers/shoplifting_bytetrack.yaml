@@ -1,0 +1,15 @@
+# ByteTrack tuned for people at ~3 processed fps.
+#
+# Each person keeps one id for as long as they are in view: their id owns the
+# 40 s keypoint window the classifier judges, so an id switch throws away the
+# behaviour seen so far. People are large and scored high by the pose model,
+# so the stock detection thresholds hold; the buffer is what changes. The stock
+# 30 frames is 1 s at 30 fps, and 10 s at our rate - long enough to bridge a
+# shopper stepping behind a shelf end.
+tracker_type: bytetrack
+track_high_thresh: 0.25
+track_low_thresh: 0.1
+new_track_thresh: 0.25
+track_buffer: 30
+match_thresh: 0.8
+fuse_score: True
