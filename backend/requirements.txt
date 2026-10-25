@@ -1,0 +1,41 @@
+# API
+fastapi
+uvicorn[standard]
+starlette
+pydantic
+pydantic-settings
+pydantic[email]
+python-dotenv
+python-multipart
+
+# Auth
+PyJWT
+passlib[argon2]
+argon2-cffi
+
+# Database
+# Vectors are passed as text and cast in SQL ($1::text::vector), so the pgvector
+# Python package is not needed - only the extension inside Postgres.
+asyncpg
+
+# Computer vision
+opencv-python-headless
+numpy
+Pillow
+ultralytics
+# ByteTrack's assignment solver; ultralytics pip-installs it at runtime otherwise.
+lap>=0.5.12
+torch
+torchvision
+
+# Object storage (images and videos)
+minio
+
+# Misc
+aiofiles
+httpx
+tenacity
+
+# Tests
+pytest
+pytest-asyncio

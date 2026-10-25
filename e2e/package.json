@@ -1,0 +1,14 @@
+{
+  "name": "shoplifting-e2e",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "Playwright end-to-end suite driving the shoplifting operator console",
+  "scripts": {
+    "test": "playwright test",
+    "report": "playwright show-report"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.50.0"
+  }
+}
