@@ -17,6 +17,7 @@ name: shoplifting
 
 services:
   postgres:
+    container_name: shoplifting-postgres
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -43,6 +44,7 @@ services:
       retries: 20
 
   api:
+    container_name: shoplifting-api
     build:
       context: ./backend
     restart: unless-stopped
@@ -96,6 +98,7 @@ services:
               capabilities: [gpu]
 
   web:
+    container_name: shoplifting-web
     build:
       context: ./frontend
     restart: unless-stopped
@@ -116,6 +119,7 @@ services:
   # resolved by the api container, so "localhost" there would mean the
   # container itself. From the host it is rtsp://localhost:8557/shoplifter0.
   mediamtx:
+    container_name: shoplifting-mediamtx
     image: bluenviron/mediamtx:latest-ffmpeg
     restart: unless-stopped
     environment:
@@ -141,6 +145,7 @@ services:
   # of MinIO from source, pinned by digest (Chainguard only offers :latest for
   # free); to update, pull :latest and copy the new digest here.
   minio:
+    container_name: shoplifting-minio
     image: cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
     restart: unless-stopped
     command: ["server", "/data", "--console-address", ":9001"]
@@ -162,6 +167,7 @@ services:
 
   # One-shot: creates the bucket, then exits. Re-running it is harmless.
   minio-init:
+    container_name: shoplifting-minio-init
     image: cgr.dev/chainguard/minio@sha256:2136d593beacf4461187035eca949fe49abd589d5079735025c711ca58fee0c8
     depends_on:
       minio:

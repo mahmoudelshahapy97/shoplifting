@@ -10,6 +10,7 @@ name: shoplifting
 
 services:
   postgres:
+    container_name: shoplifting-postgres
     image: postgres:17-alpine
     restart: unless-stopped
     environment:
@@ -29,6 +30,7 @@ services:
       retries: 20
 
   api:
+    container_name: shoplifting-api
     build: .
     restart: unless-stopped
     env_file:
@@ -60,6 +62,7 @@ services:
   # physical hardware:  docker compose --profile testing up -d mediamtx
   # Register the camera as rtsp://mediamtx:8554/shoplifter0.
   mediamtx:
+    container_name: shoplifting-mediamtx
     image: bluenviron/mediamtx:latest-ffmpeg
     profiles: ["testing"]
     restart: unless-stopped
