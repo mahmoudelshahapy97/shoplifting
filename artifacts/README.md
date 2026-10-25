@@ -13,11 +13,13 @@ show real detections next to the demo data.
 | `screenshots/desktop-dark/` | 19 pages at 1440×900, dark theme, full page |
 | `screenshots/desktop-light/` | The same pages in the light theme |
 | `screenshots/phone/` | The same pages at 390×844 (2× pixel density) |
+| `videos/notification-live.mp4` (`.webm`) | A test alert reaching the open console: the popup, the bell's badge and list, then the incident it opens |
+| `screenshots/notifications/` | The popup, the open bell (dark and light), the opened incident, and both on a phone |
 
 Playwright's bundled Chromium cannot decode H.264. So in the walkthrough the incident video shows
 its poster frame; the clip itself is `incident-evidence-clip.mp4`.
 
-To regenerate, run [`capture.mjs`](capture.mjs) in `mcr.microsoft.com/playwright:v1.50.0-noble`
+To regenerate, run [`capture.mjs`](capture.mjs) (and [`capture-notifications.mjs`](capture-notifications.mjs) for the notification captures) in `mcr.microsoft.com/playwright:v1.50.0-noble`
 on the stack's network (`BASE_URL` is `http://web`), with this folder mounted at `/artifacts`.
 Seed the database first and let the live camera raise an incident with a clip, since the script
 looks for one.
