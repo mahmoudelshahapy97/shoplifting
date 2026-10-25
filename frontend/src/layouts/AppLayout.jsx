@@ -238,7 +238,9 @@ export function AppLayout({ mode, onToggleMode }) {
           >
             <MenuIcon />
           </IconButton>
-          <Typography variant="h6" sx={{ flexGrow: 1 }}>
+          {/* On a phone the page's own heading names it; the bar keeps its room
+              for the workspace switcher and the controls. */}
+          <Typography variant="h6" noWrap sx={{ flexGrow: 1, minWidth: 0, visibility: { xs: "hidden", sm: "visible" } }}>
             {currentTitle}
           </Typography>
           <Stack direction="row" spacing={1.5} alignItems="center">

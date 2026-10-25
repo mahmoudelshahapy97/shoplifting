@@ -148,7 +148,19 @@ function useChartKit() {
         legend: {
           position: "top",
           align: "end",
-          labels: { color: p.text.secondary, boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 2 },
+          labels: {
+            color: p.text.secondary,
+            boxWidth: 10,
+            boxHeight: 10,
+            useBorderRadius: true,
+            borderRadius: 2,
+            // A line's swatch would otherwise take its translucent area fill
+            // and read as an empty box; show the line colour instead.
+            generateLabels: (chart) =>
+              ChartJS.defaults.plugins.legend.labels
+                .generateLabels(chart)
+                .map((label) => (chart.config.type === "line" ? { ...label, fillStyle: label.strokeStyle } : label)),
+          },
         },
       },
     };
