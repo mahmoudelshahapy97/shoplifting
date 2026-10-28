@@ -74,8 +74,8 @@ test("a new incident pops up and lands in the bell without a reload", async ({ p
   // Opening it marked it read, for this account only.
   await expect
     .poll(async () => {
-      const { notifications } = await notificationsFor(request, authHeaders());
-      return notifications.find((n) => n.event_id === incident.event_id)?.read_at ?? null;
+      const { items: notifications } = await notificationsFor(request, authHeaders());
+      return notifications.find((n) => n.ref_id === incident.event_id)?.read_at ?? null;
     })
     .not.toBeNull();
   expect(problems).toEqual([]);
@@ -89,8 +89,8 @@ test("every account that can see the workspace was told", async ({ request }) =>
   expect(login.ok()).toBe(true);
   const viewer = { Authorization: `Bearer ${(await login.json()).access_token}` };
 
-  const { notifications, unread } = await notificationsFor(request, viewer);
-  const mine = notifications.find((n) => n.event_id === incident.event_id);
+  const { items: notifications, unread } = await notificationsFor(request, viewer);
+  const mine = notifications.find((n) => n.ref_id === incident.event_id);
   expect(mine).toBeTruthy();
   expect(mine.title).toBe(TITLE);
   // The admin opening it did not read it for the viewer.
@@ -107,7 +107,7 @@ test("mark all read clears the badge", async ({ page, request }) => {
     await markAll.click();
     await expect
       .poll(async () => {
-        const { notifications } = await notificationsFor(request, authHeaders());
+        const { items: notifications } = await notificationsFor(request, authHeaders());
         return notifications.filter((n) => n.created_at < before && !n.read_at).length;
       })
       .toBe(0);

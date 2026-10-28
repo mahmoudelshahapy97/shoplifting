@@ -1,5 +1,15 @@
 # Artifacts
 
+## The shared InsightEye UI (current)
+
+`screenshots/{desktop-dark,desktop-light,desktop-ar,phone}/` come from `frontend/packages/insighteye-ui/scripts/capture.mjs` (APP_KEY=shoplifting) on a scratch stack with `database/seed.sql` and a live test incident. Arabic is right to left.
+
+Each folder has the same pages: login, dashboard, cameras, a camera, live wall, incidents, an incident, notifications, analytics (overview and high-value), workers & config, workspaces, users, audit log.
+
+## Earlier captures
+
+The material below predates the shared UI.
+
 Screenshots and videos of the running console, captured on 2026-10-25 with Playwright
 (Chromium 1.50) against a fresh stack. The stack was loaded with `database/seed.sql`, and the
 seeded "Electronics Aisle" camera ran live on `rtsp://mediamtx:8554/shoplifter0`, so the screens
