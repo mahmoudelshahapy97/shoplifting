@@ -8,33 +8,35 @@ import {
   SEVERITY_COLOR,
 } from "../utils/constants";
 import { formatScore, titleCase } from "../utils/format";
+import { useTranslation } from "react-i18next";
+import i18n from "i18next";
 
 const EVENT_HINT = {
-  detected: "Raised by the classifier; nobody has looked at it yet",
-  under_review: "Someone is watching the footage",
-  confirmed: "An operator confirmed it was shoplifting",
-  dismissed: "A false positive — nothing was taken",
-  resolved: "Dealt with and closed",
+  get detected() { return i18n.t("statusChips.raisedByTheClassifierNobody"); },
+  get under_review() { return i18n.t("statusChips.someoneIsWatchingTheFootage"); },
+  get confirmed() { return i18n.t("statusChips.anOperatorConfirmedItWas"); },
+  get dismissed() { return i18n.t("statusChips.aFalsePositiveNothingWas"); },
+  get resolved() { return i18n.t("statusChips.dealtWithAndClosed"); },
 };
 
 const SEVERITY_HINT = {
-  low: "Peak probability just over the alert threshold",
-  medium: "Peak probability of 60% or more",
-  high: "Peak probability of 75% or more",
-  critical: "Peak probability of 90% or more",
+  get low() { return i18n.t("statusChips.peakProbabilityJustOverThe"); },
+  get medium() { return i18n.t("statusChips.peakProbabilityOf60Or"); },
+  get high() { return i18n.t("statusChips.peakProbabilityOf75Or"); },
+  get critical() { return i18n.t("statusChips.peakProbabilityOf90Or"); },
 };
 
 const ACTION_HINT = {
-  none: "Recorded: no action was taken",
-  intervened: "Staff stepped in",
-  police_called: "The police were called",
+  get none() { return i18n.t("statusChips.recordedNoActionWasTaken"); },
+  get intervened() { return i18n.t("statusChips.staffSteppedIn"); },
+  get police_called() { return i18n.t("statusChips.thePoliceWereCalled"); },
 };
 
 const PERSON_HINT = {
-  BUFFERING: "Seen for less than 10 s; not judged yet",
-  NORMAL: "Judged and looking like ordinary shopping",
-  SUSPICIOUS: "Probability above half the alert threshold — worth watching",
-  ALERT: "Raised an incident within its cooldown",
+  get BUFFERING() { return i18n.t("statusChips.seenForLessThan10"); },
+  get NORMAL() { return i18n.t("statusChips.judgedAndLookingLikeOrdinary"); },
+  get SUSPICIOUS() { return i18n.t("statusChips.probabilityAboveHalfTheAlert"); },
+  get ALERT() { return i18n.t("statusChips.raisedAnIncidentWithinIts"); },
 };
 
 function BaseChip({ value, label, colors, hints, size, ...props }) {
@@ -104,9 +106,10 @@ export function PersonStatusChip({ status, probability, size = "small", ...props
 
 /** Whether a camera is configured to run, which is not whether it *is* running. */
 export function EnabledChip({ enabled, size = "small", ...props }) {
+  const { t } = useTranslation();
   return (
     <Chip
-      label={enabled ? "Enabled" : "Disabled"}
+      label={enabled ? t("statusChips.enabled") : t("statusChips.disabled")}
       color={enabled ? "success" : "default"}
       size={size}
       variant={enabled ? "filled" : "outlined"}
@@ -117,19 +120,20 @@ export function EnabledChip({ enabled, size = "small", ...props }) {
 
 /** Whether a worker exists for this camera right now, and whether it has a stream. */
 export function WorkerChip({ worker, size = "small", ...props }) {
+  const { t } = useTranslation();
   if (!worker || !worker.running) {
-    return <Chip label="Stopped" size={size} variant="outlined" {...props} />;
+    return <Chip label={t("statusChips.stopped")} size={size} variant="outlined" {...props} />;
   }
   return (
     <Tooltip
       title={
         worker.connected
-          ? `${worker.frames_processed ?? 0} frames processed`
-          : "Worker is up but the RTSP source is not answering"
+          ? t("statusChips.v0FramesProcessed", { v0: worker.frames_processed ?? 0 })
+          : t("statusChips.workerIsUpButThe")
       }
     >
       <Chip
-        label={worker.connected ? "Streaming" : "Reconnecting"}
+        label={worker.connected ? t("statusChips.streaming") : t("statusChips.reconnecting")}
         color={worker.connected ? "success" : "warning"}
         size={size}
         variant="outlined"

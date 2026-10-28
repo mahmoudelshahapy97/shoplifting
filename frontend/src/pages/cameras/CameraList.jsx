@@ -17,6 +17,8 @@ import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 
 import AddIcon from "@mui/icons-material/Add";
+import NetworkCheckIcon from "@mui/icons-material/NetworkCheck";
+import { ProbeDialog, useProbe } from "@insighteye/ui";
 import DeleteOutlineIcon from "@mui/icons-material/DeleteOutline";
 import EditIcon from "@mui/icons-material/Edit";
 import PlayArrowIcon from "@mui/icons-material/PlayArrow";
@@ -36,13 +38,16 @@ import { useAsync } from "../../hooks/useAsync";
 import { usePolling } from "../../hooks/usePolling";
 import { POLL_INTERVAL_MS } from "../../utils/constants";
 import { describePlace, formatNumber, fromNow, redactUrl } from "../../utils/format";
+import { useTranslation } from "react-i18next";
 
 export default function CameraList() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const toast = useToast();
   const { hasRole } = useAuth();
   const canOperate = hasRole("operator");
   const canManage = hasRole("admin");
+  const probe = useProbe(cameraApi, errorMessage);
 
   const { data, error, loading, refresh } = useAsync(
     ({ signal }) => cameraApi.list(undefined, { signal }),
@@ -105,8 +110,8 @@ export default function CameraList() {
   return (
     <Box>
       <PageHeader
-        title="Cameras"
-        subtitle="RTSP sources whose shoppers are being watched, and what each saw in the last 24 hours."
+        title={t("cameraList.cameras")}
+        subtitle={t("cameraList.rtspSourcesWhoseShoppersAre")}
         actions={[
           canManage && (
             <Button
@@ -116,11 +121,16 @@ export default function CameraList() {
               variant="contained"
               startIcon={<AddIcon />}
             >
-              Add camera
+              {t("cameraList.addCamera")}
+            </Button>
+          ),
+          canOperate && (
+            <Button key="probe" onClick={probe.probeAll} startIcon={<NetworkCheckIcon />}>
+              {t("actions.testAll")}
             </Button>
           ),
           <Button key="refresh" onClick={refresh} startIcon={<RefreshIcon />}>
-            Refresh
+            {t("cameraList.refresh")}
           </Button>,
         ]}
       />
@@ -130,7 +140,7 @@ export default function CameraList() {
       {data?.length ? (
         <TextField
           size="small"
-          label="Search camera or zone"
+          label={t("cameraList.searchCameraOrZone")}
           value={search}
           onChange={(event) => setSearch(event.target.value)}
           sx={{ mb: 2, width: { xs: "100%", sm: 320 } }}
@@ -138,21 +148,21 @@ export default function CameraList() {
       ) : null}
 
       {loading && !data ? (
-        <Loading label="Loading cameras…" />
+        <Loading label={t("cameraList.loadingCameras")} />
       ) : rows.length ? (
         <Card>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell>Place</TableCell>
-                  <TableCell>Source</TableCell>
-                  <TableCell>State</TableCell>
-                  <TableCell>Worker</TableCell>
-                  <TableCell align="right">Last 24 h</TableCell>
-                  <TableCell>Last sample</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t("cameraList.name")}</TableCell>
+                  <TableCell>{t("cameraList.place")}</TableCell>
+                  <TableCell>{t("cameraList.source")}</TableCell>
+                  <TableCell>{t("cameraList.state")}</TableCell>
+                  <TableCell>{t("cameraList.worker")}</TableCell>
+                  <TableCell align="right">{t("cameraList.last24H")}</TableCell>
+                  <TableCell>{t("cameraList.lastSample")}</TableCell>
+                  <TableCell align="right">{t("cameraList.actions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -203,14 +213,14 @@ export default function CameraList() {
                       <TableCell align="right">
                         {stats ? (
                           <Tooltip
-                            title={`${formatNumber(stats.incidents_24h)} incident(s) · ${formatNumber(stats.sessions_24h)} shopper(s) · ${formatNumber(stats.observations_24h)} probability sample(s)`}
+                            title={t("cameraList.v0IncidentSV1Shopper", { v0: formatNumber(stats.incidents_24h), v1: formatNumber(stats.sessions_24h), v2: formatNumber(stats.observations_24h) })}
                           >
                             <Typography variant="body2">
                               <Box component="span" sx={{ color: stats.incidents_24h ? "error.main" : "text.primary", fontWeight: 600 }}>
                                 {formatNumber(stats.incidents_24h)}
                               </Box>{" "}
                               <Typography component="span" variant="caption" color="text.secondary">
-                                / {formatNumber(stats.sessions_24h)} shoppers
+                                {t("cameraList.v0Shoppers", { v0: formatNumber(stats.sessions_24h) })}
                               </Typography>
                             </Typography>
                           </Tooltip>
@@ -223,24 +233,24 @@ export default function CameraList() {
                           variant="caption"
                           color={camera.enabled && stats && !stats.observations_24h ? "warning.main" : "text.disabled"}
                         >
-                          {stats?.last_observation_at ? fromNow(stats.last_observation_at) : "Never"}
+                          {stats?.last_observation_at ? fromNow(stats.last_observation_at) : t("cameraList.never")}
                         </Typography>
                       </TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
                           {canOperate &&
                             (worker?.running ? (
-                              <Tooltip title="Stop worker">
+                              <Tooltip title={t("cameraList.stopWorker")}>
                                 <span>
                                   <IconButton
                                     size="small"
                                     disabled={busy}
-                                    aria-label={`Stop ${camera.name}`}
+                                    aria-label={t("cameraList.stopName", { name: camera.name })}
                                     onClick={() =>
                                       runAction(
                                         camera.camera_id,
                                         () => cameraApi.stop(camera.camera_id),
-                                        "Worker stopped."
+                                        t("cameraList.workerStopped")
                                       )
                                     }
                                   >
@@ -249,17 +259,17 @@ export default function CameraList() {
                                 </span>
                               </Tooltip>
                             ) : (
-                              <Tooltip title="Start worker">
+                              <Tooltip title={t("cameraList.startWorker")}>
                                 <span>
                                   <IconButton
                                     size="small"
                                     disabled={busy}
-                                    aria-label={`Start ${camera.name}`}
+                                    aria-label={t("cameraList.startName", { name: camera.name })}
                                     onClick={() =>
                                       runAction(
                                         camera.camera_id,
                                         () => cameraApi.start(camera.camera_id),
-                                        "Worker started."
+                                        t("cameraList.workerStarted")
                                       )
                                     }
                                   >
@@ -269,12 +279,12 @@ export default function CameraList() {
                               </Tooltip>
                             ))}
                           {canManage && (
-                            <Tooltip title="Edit">
+                            <Tooltip title={t("cameraList.edit")}>
                               <span>
                                 <IconButton
                                   size="small"
                                   disabled={busy}
-                                  aria-label={`Edit ${camera.name}`}
+                                  aria-label={t("cameraList.editName", { name: camera.name })}
                                   onClick={() => navigate(`/cameras/${camera.camera_id}/edit`)}
                                 >
                                   <EditIcon fontSize="small" />
@@ -283,13 +293,13 @@ export default function CameraList() {
                             </Tooltip>
                           )}
                           {canManage && (
-                            <Tooltip title="Delete">
+                            <Tooltip title={t("cameraList.delete")}>
                               <span>
                                 <IconButton
                                   size="small"
                                   color="error"
                                   disabled={busy}
-                                  aria-label={`Delete ${camera.name}`}
+                                  aria-label={t("cameraList.deleteName", { name: camera.name })}
                                   onClick={() => setPendingDelete(camera)}
                                 >
                                   <DeleteOutlineIcon fontSize="small" />
@@ -309,11 +319,11 @@ export default function CameraList() {
       ) : (
         <Card>
           <EmptyState
-            title={data?.length ? "No camera matches that search" : "No cameras registered"}
+            title={data?.length ? t("cameraList.noCameraMatchesThatSearch") : t("cameraList.noCamerasRegistered")}
             description={
               data?.length
-                ? "Search looks at camera names and zones."
-                : "Add an RTSP source and a detection worker will start judging every shopper it sees."
+                ? t("cameraList.searchLooksAtCameraNames")
+                : t("cameraList.addAnRtspSourceAnd")
             }
             icon={<VideocamIcon fontSize="inherit" />}
             action={
@@ -324,7 +334,7 @@ export default function CameraList() {
                   variant="contained"
                   startIcon={<AddIcon />}
                 >
-                  Add camera
+                  {t("cameraList.addCamera")}
                 </Button>
               )
             }
@@ -332,11 +342,12 @@ export default function CameraList() {
         </Card>
       )}
 
+      <ProbeDialog {...probe.dialogProps} />
       <ConfirmDialog
         open={Boolean(pendingDelete)}
-        title={`Delete “${pendingDelete?.name}”?`}
-        description="This also deletes every incident this camera raised, with its frames and clips, and its shopper sessions."
-        confirmLabel="Delete"
+        title={t("cameraList.deleteV0", { v0: pendingDelete?.name })}
+        description={t("cameraList.thisAlsoDeletesEveryIncident")}
+        confirmLabel={t("cameraList.delete")}
         confirmColor="error"
         onConfirm={confirmDelete}
         onClose={() => setPendingDelete(null)}

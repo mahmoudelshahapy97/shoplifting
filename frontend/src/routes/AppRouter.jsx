@@ -1,11 +1,9 @@
 import { Suspense, lazy } from "react";
+import { useTranslation } from "react-i18next";
+import { AuthLayout, Loading, RequireAuth } from "@insighteye/ui";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import ProductIcon from "@mui/icons-material/LocalPolice";
 import AppLayout from "../layouts/AppLayout";
-import AuthLayout from "../layouts/AuthLayout";
-import { Loading } from "../components/DataStates";
-import { RequireAuth } from "./RequireAuth";
-import { WorkspaceProvider } from "../workspace/WorkspaceContext";
-import { NotificationProvider } from "../notifications/NotificationContext";
 
 // Code-split per route: the dashboard is the landing screen and has no business
 // downloading the analytics charts and the camera editor before it can paint.
@@ -22,14 +20,19 @@ const Analytics = lazy(() => import("../pages/Analytics"));
 const SystemStatus = lazy(() => import("../pages/SystemStatus"));
 const Users = lazy(() => import("../pages/admin/Users"));
 const Workspaces = lazy(() => import("../pages/admin/Workspaces"));
+const LiveWall = lazy(() => import("../pages/LiveWall"));
+const Notifications = lazy(() => import("../pages/Notifications"));
+const AuditLog = lazy(() => import("../pages/admin/AuditLog"));
 const NotFound = lazy(() => import("../pages/NotFound"));
 
-export function AppRouter({ mode, onToggleMode }) {
+export function AppRouter() {
+  const { t } = useTranslation();
+  const product = { brand: "InsightEye", tagline: t("product.tagline"), icon: <ProductIcon /> };
   return (
     <BrowserRouter>
-      <Suspense fallback={<Loading label="Loading…" height="60vh" />}>
+      <Suspense fallback={<Loading height="60vh" />}>
         <Routes>
-          <Route element={<AuthLayout />}>
+          <Route element={<AuthLayout product={product} />}>
             <Route path="/login" element={<Login />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
           </Route>
@@ -37,11 +40,7 @@ export function AppRouter({ mode, onToggleMode }) {
           <Route
             element={
               <RequireAuth>
-                <WorkspaceProvider>
-                  <NotificationProvider>
-                    <AppLayout mode={mode} onToggleMode={onToggleMode} />
-                  </NotificationProvider>
-                </WorkspaceProvider>
+                <AppLayout />
               </RequireAuth>
             }
           >
@@ -52,7 +51,7 @@ export function AppRouter({ mode, onToggleMode }) {
               <Route
                 path="new"
                 element={
-                  <RequireAuth minimum="admin">
+                  <RequireAuth perm="admin">
                     <CameraForm />
                   </RequireAuth>
                 }
@@ -61,7 +60,7 @@ export function AppRouter({ mode, onToggleMode }) {
               <Route
                 path=":cameraId/edit"
                 element={
-                  <RequireAuth minimum="admin">
+                  <RequireAuth perm="admin">
                     <CameraForm />
                   </RequireAuth>
                 }
@@ -80,7 +79,7 @@ export function AppRouter({ mode, onToggleMode }) {
             <Route
               path="/workspaces"
               element={
-                <RequireAuth minimum="admin">
+                <RequireAuth perm="admin">
                   <Workspaces />
                 </RequireAuth>
               }
@@ -89,7 +88,7 @@ export function AppRouter({ mode, onToggleMode }) {
             <Route
               path="/users"
               element={
-                <RequireAuth minimum="admin">
+                <RequireAuth perm="admin">
                   <Users />
                 </RequireAuth>
               }
@@ -98,6 +97,17 @@ export function AppRouter({ mode, onToggleMode }) {
             {/* The API calls them "events"; operators call them incidents. Both work. */}
             <Route path="/incidents" element={<Navigate to="/events" replace />} />
             <Route path="/alerts" element={<Navigate to="/events" replace />} />
+
+            <Route path="/live" element={<LiveWall />} />
+            <Route path="/notifications" element={<Notifications />} />
+            <Route
+              path="/audit"
+              element={
+                <RequireAuth perm="admin">
+                  <AuditLog />
+                </RequireAuth>
+              }
+            />
 
             <Route path="*" element={<NotFound />} />
           </Route>

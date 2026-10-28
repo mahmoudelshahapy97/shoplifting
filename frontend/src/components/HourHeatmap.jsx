@@ -4,9 +4,12 @@ import Stack from "@mui/material/Stack";
 import Tooltip from "@mui/material/Tooltip";
 import Typography from "@mui/material/Typography";
 import { alpha, useTheme } from "@mui/material/styles";
+import { useTranslation } from "react-i18next";
+import i18n from "i18next";
 
 // Postgres EXTRACT(DOW): 0 is Sunday.
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+// Postgres EXTRACT(DOW) order, 0 = Sunday; names come from the locale.
+const weekdays = () => i18n.t("common:time.weekdaysShort", { returnObjects: true });
 const HOURS = Array.from({ length: 24 }, (_, hour) => hour);
 const pad = (hour) => String(hour).padStart(2, "0");
 
@@ -21,11 +24,12 @@ const pad = (hour) => String(hour).padStart(2, "0");
  * `cells` is sparse - [{weekday, hour, events}] for the non-empty ones only.
  */
 export function HourHeatmap({ cells = [], unit = "alert" }) {
+  const { t } = useTranslation();
   const theme = useTheme();
   const base = theme.palette.primary.main;
 
   const { grid, max } = useMemo(() => {
-    const counts = WEEKDAYS.map(() => HOURS.map(() => 0));
+    const counts = Array.from({ length: 7 }, () => HOURS.map(() => 0));
     let peak = 0;
     for (const cell of cells) {
       counts[cell.weekday][cell.hour] = cell.events;
@@ -40,7 +44,7 @@ export function HourHeatmap({ cells = [], unit = "alert" }) {
   return (
     <Box>
       {/* Scrolls sideways on a phone rather than squashing 24 columns. */}
-      <Box sx={{ overflowX: "auto", pb: 1 }}>
+      <Box sx={{ overflowX: "auto", pb: 1 }} dir="ltr">
         <Box
           sx={{
             display: "grid",
@@ -61,7 +65,7 @@ export function HourHeatmap({ cells = [], unit = "alert" }) {
             </Typography>
           ))}
 
-          {WEEKDAYS.map((day, weekday) => [
+          {weekdays().map((day, weekday) => [
             <Typography
               key={`${day}-label`}
               variant="caption"
@@ -111,7 +115,7 @@ export function HourHeatmap({ cells = [], unit = "alert" }) {
           }}
         />
         <Typography variant="caption" color="text.secondary">
-          {max} per hour
+          {t("hourHeatmap.maxPerHour", { max })}
         </Typography>
       </Stack>
     </Box>

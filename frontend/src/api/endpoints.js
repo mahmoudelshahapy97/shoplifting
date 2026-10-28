@@ -24,6 +24,8 @@ export const auth = {
     client.post("/auth/logout", { refresh_token: refreshToken }).then((r) => r.data),
   logoutAll: () => client.post("/auth/logout-all").then((r) => r.data),
   me: (opts) => client.get("/auth/me", opts).then((r) => r.data),
+  /** Self-service settings: {notify_email}. Returns the updated account. */
+  updateMe: (changes) => client.patch("/auth/me", changes).then((r) => r.data),
   changePassword: (currentPassword, newPassword) =>
     client
       .post("/auth/change-password", {
@@ -99,10 +101,18 @@ export const cameras = {
    * Bump `bust` to reconnect after the worker restarts.
    */
   streamUrl: (id, bust = Date.now()) => mediaUrl(`/cameras/${id}/stream`, { t: bust }),
+
+  /** Open the camera's stream briefly and report what it found; detection is not touched. */
+  probe: (id) => client.post(`/cameras/${id}/probe`).then((r) => r.data),
+  /** The same for every enabled camera of the workspace, a few at a time. */
+  probeAll: () => client.post("/cameras/probe-all").then((r) => r.data),
 };
 
 // --- incidents (the API calls them events) -------------------------------
 export const events = {
+  /** The list's filters as a CSV download (a Blob, so the token stays in the header). */
+  exportBlob: (params) =>
+    client.get("/events/export.csv", { params, responseType: "blob" }).then((r) => r.data),
   /** Filters: status, severity, action_taken, camera_id, the hierarchy, start, end. */
   list: (params, opts) => client.get("/events", { params, ...opts }).then((r) => r.data),
   get: (id, params, opts) => client.get(`/events/${id}`, { params, ...opts }).then((r) => r.data),
@@ -120,23 +130,32 @@ export const events = {
   clipUrl: (id) => mediaUrl(`/events/${id}/clip`),
 };
 
-// --- notifications -----------------------------------------------------------
-// Addressed to the signed-in account across its workspaces, so these calls do
-// not depend on the active one. New ones arrive over the socket (socketUrl).
+// --- notifications ----------------------------------------------------------
+// Addressed to the account, not the active workspace: the bell lists every
+// workspace the caller can see, and each row names its own.
 export const notifications = {
-  /** {unread_only, before, limit} -> {notifications, unread}. */
+  /** {unread_only, kind, workspace_id, limit, offset} -> {items, total, unread}. */
   list: (params, opts) => client.get("/notifications", { params, ...opts }).then((r) => r.data),
-  unreadCount: (opts) => client.get("/notifications/unread-count", opts).then((r) => r.data),
-  /** Marks the listed ids read, or every unread one when ids is left out. */
+  unreadCount: (opts) => client.get("/notifications/unread-count", opts).then((r) => r.data.unread),
+  /** The listed ids, or every unread one when none are given. -> {marked, unread} */
   markRead: (ids) =>
-    client
-      .post("/notifications/read", ids ? { notification_ids: ids } : {})
-      .then((r) => r.data),
+    client.post("/notifications/read", ids ? { notification_ids: ids } : {}).then((r) => r.data),
+  markUnread: (id) => client.delete(`/notifications/${id}/read`).then((r) => r.data),
+  /** A "system" notification to yourself, to check the bell and the socket end to end. */
+  sendTest: () => client.post("/notifications/test").then((r) => r.data),
   /** ws(s)://<host>/api/v1/notifications/ws; the token goes in the first message. */
   socketUrl: () => {
-    const base = /^https?:/.test(API_BASE) ? API_BASE : `${window.location.origin}${API_BASE}`;
+    const base = new URL(API_BASE, window.location.href).toString().replace(/\/$/, "");
     return `${base.replace(/^http/, "ws")}/notifications/ws`;
   },
+};
+
+// --- audit log ----------------------------------------------------------------
+export const audit = {
+  /** {action, actor, since, until, limit, offset} -> {items, total}. Admins only. */
+  list: (params, opts) => client.get("/audit-logs", { params, ...opts }).then((r) => r.data),
+  exportBlob: (params) =>
+    client.get("/audit-logs/export.csv", { params, responseType: "blob" }).then((r) => r.data),
 };
 
 // --- analytics ------------------------------------------------------------
@@ -164,6 +183,5 @@ export default {
   system,
   cameras,
   events,
-  notifications,
   analytics,
 };

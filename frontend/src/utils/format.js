@@ -1,6 +1,7 @@
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 import utc from "dayjs/plugin/utc";
+import i18n from "i18next";
 
 dayjs.extend(relativeTime);
 dayjs.extend(utc);
@@ -60,13 +61,16 @@ export const shortId = (id) => (id ? String(id).split("-")[0] : "—");
  * The status enums arrive SHOUTING, so lowering first is what makes this title
  * case rather than a no-op that leaves the chips shouting too.
  */
-export const titleCase = (value) =>
-  value
-    ? String(value)
-        .replace(/_/g, " ")
-        .toLowerCase()
-        .replace(/\b\w/g, (c) => c.toUpperCase())
-    : "—";
+export const titleCase = (value) => {
+  if (!value) return "—";
+  const english = String(value)
+    .replace(/_/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (c) => c.toUpperCase());
+  // Enum codes (statuses, kinds, roles) have their own entries under "enum"
+  // in the locale files; English falls back to the title-cased code.
+  return i18n.t(`enum.${value}`, { defaultValue: english });
+};
 
 /**
  * RTSP URLs routinely carry credentials, and this console is shown on wall

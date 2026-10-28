@@ -19,6 +19,7 @@ import { users as usersApi } from "../../api/endpoints";
 import { ROLES } from "../../auth/roles";
 import { useToast } from "../../components/Toast";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
+import { useTranslation } from "react-i18next";
 
 const EMPTY = { username: "", email: "", full_name: "", password: "", role: "viewer", workspace_ids: [] };
 
@@ -28,6 +29,7 @@ const EMPTY = { username: "", email: "", full_name: "", password: "", role: "vie
  * password field -- that is what the reset-password action on the list is for.
  */
 export function UserForm({ open, editingUser, onClose, onSaved }) {
+  const { t } = useTranslation();
   const toast = useToast();
   // An admin's switcher list is every workspace.
   const { workspaces } = useWorkspace();
@@ -67,7 +69,7 @@ export function UserForm({ open, editingUser, onClose, onSaved }) {
           role: form.role,
           workspace_ids: form.workspace_ids,
         });
-        toast.success(`Updated "${form.username}".`);
+        toast.success(t("userForm.updatedUsername", { username: form.username }));
       } else {
         await usersApi.create({
           username: form.username,
@@ -77,7 +79,7 @@ export function UserForm({ open, editingUser, onClose, onSaved }) {
           role: form.role,
           workspace_ids: form.workspace_ids,
         });
-        toast.success(`Created "${form.username}".`);
+        toast.success(t("userForm.createdUsername", { username: form.username }));
       }
       onSaved();
     } catch (err) {
@@ -93,19 +95,19 @@ export function UserForm({ open, editingUser, onClose, onSaved }) {
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="xs" fullWidth>
-      <DialogTitle>{editingUser ? `Edit ${editingUser.username}` : "New account"}</DialogTitle>
+      <DialogTitle>{editingUser ? t("userForm.editUsername", { username: editingUser.username }) : t("userForm.newAccount")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
-            label="Username"
+            label={t("userForm.username")}
             value={form.username}
             onChange={set("username")}
             disabled={Boolean(editingUser)}
             fullWidth
           />
           <TextField
-            label="Email"
+            label={t("userForm.email")}
             type="email"
             value={form.email}
             onChange={set("email")}
@@ -113,26 +115,26 @@ export function UserForm({ open, editingUser, onClose, onSaved }) {
             fullWidth
           />
           <TextField
-            label="Full name"
+            label={t("userForm.fullName")}
             value={form.full_name}
             onChange={set("full_name")}
             fullWidth
           />
           {!editingUser && (
             <TextField
-              label="Password"
+              label={t("userForm.password")}
               type="password"
               value={form.password}
               onChange={set("password")}
-              helperText="At least 8 characters, with upper, lower, a digit and a symbol."
+              helperText={t("userForm.atLeast8CharactersWith")}
               fullWidth
             />
           )}
           <FormControl fullWidth>
-            <InputLabel id="user-role-label">Role</InputLabel>
+            <InputLabel id="user-role-label">{t("userForm.role")}</InputLabel>
             <Select
               labelId="user-role-label"
-              label="Role"
+              label={t("userForm.role")}
               value={form.role}
               onChange={set("role")}
             >
@@ -144,10 +146,10 @@ export function UserForm({ open, editingUser, onClose, onSaved }) {
             </Select>
           </FormControl>
           <FormControl fullWidth>
-            <InputLabel id="user-workspaces-label">Workspaces</InputLabel>
+            <InputLabel id="user-workspaces-label">{t("userForm.workspaces")}</InputLabel>
             <Select
               labelId="user-workspaces-label"
-              label="Workspaces"
+              label={t("userForm.workspaces")}
               multiple
               value={form.workspace_ids}
               onChange={(e) => setForm((f) => ({ ...f, workspace_ids: e.target.value }))}
@@ -171,18 +173,18 @@ export function UserForm({ open, editingUser, onClose, onSaved }) {
             </Select>
             <FormHelperText>
               {form.role === "admin"
-                ? "Admins see every workspace whatever is chosen here."
-                : "The account only sees these workspaces' cameras, incidents and analytics."}
+                ? t("userForm.adminsSeeEveryWorkspaceWhatever")
+                : t("userForm.theAccountOnlySeesThese")}
             </FormHelperText>
           </FormControl>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={busy} color="inherit">
-          Cancel
+          {t("userForm.cancel")}
         </Button>
         <Button onClick={handleSubmit} disabled={busy || !canSubmit} variant="contained">
-          {busy ? "Saving…" : editingUser ? "Save changes" : "Create account"}
+          {busy ? t("userForm.saving") : editingUser ? t("userForm.saveChanges") : t("userForm.createAccount")}
         </Button>
       </DialogActions>
     </Dialog>

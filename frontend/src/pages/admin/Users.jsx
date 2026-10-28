@@ -31,10 +31,12 @@ import { useToast } from "../../components/Toast";
 import { useAsync } from "../../hooks/useAsync";
 import { formatDateTime } from "../../utils/format";
 import UserForm from "./UserForm";
+import { useTranslation } from "react-i18next";
 
 const ROLE_COLOR = { admin: "error", operator: "primary", viewer: "default" };
 
 export default function Users() {
+  const { t } = useTranslation();
   const toast = useToast();
   const { user: me } = useAuth();
 
@@ -79,7 +81,7 @@ export default function Users() {
     setBusyId(user.user_id);
     try {
       await usersApi.remove(user.user_id);
-      toast.success(`"${user.username}" deleted.`);
+      toast.success(t("users.usernameDeleted", { username: user.username }));
       refresh();
     } catch (err) {
       toast.error(errorMessage(err));
@@ -97,7 +99,7 @@ export default function Users() {
     setBusyId(user.user_id);
     try {
       await usersApi.resetPassword(user.user_id, tempPassword);
-      toast.success(`Password for "${user.username}" reset to: ${tempPassword}`);
+      toast.success(t("users.passwordForUsernameResetTo", { username: user.username, tempPassword }));
     } catch (err) {
       toast.error(errorMessage(err));
     } finally {
@@ -108,14 +110,14 @@ export default function Users() {
   return (
     <Box>
       <PageHeader
-        title="Users"
-        subtitle="Console accounts and their roles. There is no public signup: every account is created here."
+        title={t("users.users")}
+        subtitle={t("users.consoleAccountsAndTheirRoles")}
         actions={[
           <Button key="add" onClick={openCreate} variant="contained" startIcon={<AddIcon />}>
-            New account
+            {t("users.newAccount")}
           </Button>,
           <Button key="refresh" onClick={refresh} startIcon={<RefreshIcon />}>
-            Refresh
+            {t("users.refresh")}
           </Button>,
         ]}
       />
@@ -123,20 +125,20 @@ export default function Users() {
       <ErrorState error={error} onRetry={refresh} />
 
       {loading && !data ? (
-        <Loading label="Loading users…" />
+        <Loading label={t("users.loadingUsers")} />
       ) : rows.length ? (
         <Card>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Username</TableCell>
-                  <TableCell>Email</TableCell>
-                  <TableCell>Role</TableCell>
-                  <TableCell>Workspaces</TableCell>
-                  <TableCell>Active</TableCell>
-                  <TableCell>Last login</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t("users.username")}</TableCell>
+                  <TableCell>{t("users.email")}</TableCell>
+                  <TableCell>{t("users.role")}</TableCell>
+                  <TableCell>{t("users.workspaces")}</TableCell>
+                  <TableCell>{t("users.active")}</TableCell>
+                  <TableCell>{t("users.lastLogin")}</TableCell>
+                  <TableCell align="right">{t("users.actions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -150,7 +152,7 @@ export default function Users() {
                         {isSelf && (
                           <Typography component="span" variant="caption" color="text.secondary">
                             {" "}
-                            (you)
+                            {t("users.you")}
                           </Typography>
                         )}
                       </TableCell>
@@ -161,7 +163,7 @@ export default function Users() {
                       <TableCell>
                         {user.role === "admin" ? (
                           <Typography variant="caption" color="text.secondary">
-                            All (admin)
+                            {t("users.allAdmin")}
                           </Typography>
                         ) : user.workspaces?.length ? (
                           <Stack direction="row" spacing={0.5} flexWrap="wrap" useFlexGap>
@@ -171,7 +173,7 @@ export default function Users() {
                           </Stack>
                         ) : (
                           <Typography variant="caption" color="warning.main">
-                            None: sees nothing
+                            {t("users.noneSeesNothing")}
                           </Typography>
                         )}
                       </TableCell>
@@ -186,12 +188,12 @@ export default function Users() {
                       <TableCell>{formatDateTime(user.last_login)}</TableCell>
                       <TableCell align="right">
                         <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                          <Tooltip title="Edit">
+                          <Tooltip title={t("users.edit")}>
                             <IconButton size="small" disabled={busy} onClick={() => openEdit(user)}>
                               <EditIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title="Reset password">
+                          <Tooltip title={t("users.resetPassword")}>
                             <IconButton
                               size="small"
                               disabled={busy}
@@ -200,7 +202,7 @@ export default function Users() {
                               <LockResetIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
-                          <Tooltip title={isSelf ? "You cannot delete your own account" : "Delete"}>
+                          <Tooltip title={isSelf ? t("users.youCannotDeleteYourOwn") : t("users.delete")}>
                             <span>
                               <IconButton
                                 size="small"
@@ -222,11 +224,11 @@ export default function Users() {
         </Card>
       ) : (
         <EmptyState
-          title="No accounts yet"
-          description="Create the first operator or viewer account."
+          title={t("users.noAccountsYet")}
+          description={t("users.createTheFirstOperatorOr")}
           action={
             <Button onClick={openCreate} variant="contained" startIcon={<AddIcon />}>
-              New account
+              {t("users.newAccount")}
             </Button>
           }
         />
@@ -244,11 +246,11 @@ export default function Users() {
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}
-        title="Delete account?"
+        title={t("users.deleteAccount")}
         description={
-          pendingDelete && `"${pendingDelete.username}" will lose access to the console immediately.`
+          pendingDelete && t("users.usernameWillLoseAccessTo", { username: pendingDelete.username })
         }
-        confirmLabel="Delete"
+        confirmLabel={t("users.delete")}
         confirmColor="error"
         onConfirm={confirmDelete}
         onClose={() => setPendingDelete(null)}
@@ -256,12 +258,12 @@ export default function Users() {
 
       <ConfirmDialog
         open={Boolean(pendingReset)}
-        title="Reset password?"
+        title={t("users.resetPassword2")}
         description={
           pendingReset &&
-          `A new temporary password will be generated for "${pendingReset.username}" and every existing session for the account will be signed out.`
+          t("users.aNewTemporaryPasswordWill", { username: pendingReset.username })
         }
-        confirmLabel="Reset password"
+        confirmLabel={t("users.resetPassword")}
         confirmColor="warning"
         onConfirm={confirmReset}
         onClose={() => setPendingReset(null)}

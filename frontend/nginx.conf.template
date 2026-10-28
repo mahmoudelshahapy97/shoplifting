@@ -24,6 +24,14 @@ server {
     client_max_body_size 2m;
 
     # The SPA owns its routes: /events/<uuid> is React Router's, not a file.
+    # Security headers. add_header in a location replaces the server's, so the
+    # two locations that set their own cache headers repeat these.
+    add_header X-Content-Type-Options "nosniff" always;
+    add_header X-Frame-Options "DENY" always;
+    add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+    add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+    add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; object-src 'none'" always;
+
     location / {
         try_files $uri $uri/ /index.html;
     }
@@ -33,10 +41,18 @@ server {
     location /assets/ {
         expires 1y;
         add_header Cache-Control "public, immutable";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
     }
 
     location = /index.html {
         add_header Cache-Control "no-store";
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header X-Frame-Options "DENY" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Permissions-Policy "camera=(), microphone=(), geolocation=()" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com data:; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; object-src 'none'" always;
     }
 
     # MJPEG live view: an endless multipart response. Buffered, nginx would
@@ -75,7 +91,7 @@ server {
     }
 
     # The probe the health badge polls, mounted outside the versioned prefix.
-    location = /health {
+    location /health {
         proxy_pass       ${SL_API_URL};
         proxy_set_header Host $host;
     }

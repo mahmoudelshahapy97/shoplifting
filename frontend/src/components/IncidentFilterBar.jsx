@@ -18,6 +18,7 @@ import {
   SEVERITIES,
 } from "../utils/constants";
 import { titleCase } from "../utils/format";
+import { useTranslation } from "react-i18next";
 
 /**
  * The options for one hierarchy level: the values found on cameras that match
@@ -59,6 +60,7 @@ function MultiSelect({ label, options, value, onChange, getLabel = (v) => v }) {
  * severity and action (the incident list); analytics leaves them out.
  */
 export default function IncidentFilterBar({ filters, triage = false, extra = null }) {
+  const { t } = useTranslation();
   const { values, update, clear, active } = filters;
 
   const hierarchy = useAsync(({ signal }) => cameraApi.hierarchy({ signal }), []);
@@ -108,11 +110,11 @@ export default function IncidentFilterBar({ filters, triage = false, extra = nul
             select
             fullWidth
             size="small"
-            label="Camera"
+            label={t("incidentFilterBar.camera")}
             value={values.camera_id}
             onChange={(event) => update({ camera_id: event.target.value })}
           >
-            <MenuItem value="">All cameras</MenuItem>
+            <MenuItem value="">{t("incidentFilterBar.allCameras")}</MenuItem>
             {(cameraList.data || []).map((camera) => (
               <MenuItem key={camera.camera_id} value={camera.camera_id}>
                 {camera.name}
@@ -125,7 +127,7 @@ export default function IncidentFilterBar({ filters, triage = false, extra = nul
             fullWidth
             size="small"
             type="date"
-            label="From"
+            label={t("incidentFilterBar.from")}
             value={values.start}
             onChange={(event) => update({ start: event.target.value })}
             slotProps={{ inputLabel: { shrink: true }, htmlInput: { max: values.end || undefined } }}
@@ -136,7 +138,7 @@ export default function IncidentFilterBar({ filters, triage = false, extra = nul
             fullWidth
             size="small"
             type="date"
-            label="To"
+            label={t("incidentFilterBar.to")}
             value={values.end}
             onChange={(event) => update({ end: event.target.value })}
             slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: values.start || undefined } }}
@@ -146,7 +148,7 @@ export default function IncidentFilterBar({ filters, triage = false, extra = nul
           <>
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
               <MultiSelect
-                label="Status"
+                label={t("incidentFilterBar.status")}
                 options={EVENT_STATUSES}
                 value={values.status}
                 getLabel={titleCase}
@@ -155,7 +157,7 @@ export default function IncidentFilterBar({ filters, triage = false, extra = nul
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
               <MultiSelect
-                label="Severity"
+                label={t("incidentFilterBar.severity")}
                 options={SEVERITIES}
                 value={values.severity}
                 getLabel={titleCase}
@@ -164,7 +166,7 @@ export default function IncidentFilterBar({ filters, triage = false, extra = nul
             </Grid>
             <Grid size={{ xs: 12, sm: 6, md: 4, lg: 2 }}>
               <MultiSelect
-                label="Action taken"
+                label={t("incidentFilterBar.actionTaken")}
                 options={ACTIONS}
                 value={values.action_taken}
                 getLabel={(v) => ACTION_LABEL[v] || titleCase(v)}
@@ -181,7 +183,7 @@ export default function IncidentFilterBar({ filters, triage = false, extra = nul
             startIcon={<FilterAltOffIcon />}
             color="inherit"
           >
-            Clear filters
+            {t("incidentFilterBar.clearFilters")}
           </Button>
         </Grid>
       </Grid>

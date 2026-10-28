@@ -2,6 +2,7 @@ import { useState } from "react";
 import Box from "@mui/material/Box";
 import ImageNotSupportedIcon from "@mui/icons-material/ImageNotSupported";
 import Typography from "@mui/material/Typography";
+import i18n from "i18next";
 
 /**
  * An <img> against one of the API's image/jpeg endpoints, with the fallback
@@ -17,7 +18,7 @@ export function ItemImage({
   alt,
   height = 180,
   fit = "cover",
-  fallbackLabel = "No image",
+  fallbackLabel = i18n.t("itemImage.noImage"),
   sx,
 }) {
   const [failed, setFailed] = useState(false);

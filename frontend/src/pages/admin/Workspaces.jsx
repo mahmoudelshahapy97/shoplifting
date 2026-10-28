@@ -42,11 +42,13 @@ import { useToast } from "../../components/Toast";
 import { useAsync } from "../../hooks/useAsync";
 import { formatDateTime } from "../../utils/format";
 import { useWorkspace } from "../../workspace/WorkspaceContext";
+import { useTranslation } from "react-i18next";
 
 const EMPTY = { name: "", description: "", is_active: true, member_ids: [] };
 
 /** Create or edit a workspace, including who is a member. */
 function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
+  const { t } = useTranslation();
   const toast = useToast();
   const [form, setForm] = useState(EMPTY);
   const [error, setError] = useState(null);
@@ -95,10 +97,10 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
           ...payload,
           ...(editing.is_default ? {} : { is_active: form.is_active }),
         });
-        toast.success(`Updated "${payload.name}".`);
+        toast.success(t("workspaces.updatedName", { name: payload.name }));
       } else {
         await workspacesApi.create(payload);
-        toast.success(`Created "${payload.name}".`);
+        toast.success(t("workspaces.createdName", { name: payload.name }));
       }
       onSaved();
     } catch (err) {
@@ -110,12 +112,12 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
 
   return (
     <Dialog open={open} onClose={busy ? undefined : onClose} maxWidth="sm" fullWidth>
-      <DialogTitle>{editing ? `Edit ${editing.name}` : "New workspace"}</DialogTitle>
+      <DialogTitle>{editing ? t("workspaces.editName", { name: editing.name }) : t("workspaces.newWorkspace")}</DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
           <TextField
-            label="Name"
+            label={t("workspaces.name")}
             value={form.name}
             onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
             inputProps={{ maxLength: 80 }}
@@ -123,7 +125,7 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
             fullWidth
           />
           <TextField
-            label="Description"
+            label={t("workspaces.description")}
             value={form.description}
             onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))}
             inputProps={{ maxLength: 500 }}
@@ -132,10 +134,10 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
             fullWidth
           />
           <FormControl fullWidth disabled={loadingMembers}>
-            <InputLabel id="workspace-members-label">Members</InputLabel>
+            <InputLabel id="workspace-members-label">{t("workspaces.members")}</InputLabel>
             <Select
               labelId="workspace-members-label"
-              label="Members"
+              label={t("workspaces.members")}
               multiple
               value={form.member_ids}
               onChange={(e) => setForm((f) => ({ ...f, member_ids: e.target.value }))}
@@ -162,8 +164,8 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
             </Select>
             <FormHelperText>
               {loadingMembers
-                ? "Loading members…"
-                : "Members see this workspace's cameras, incidents and analytics. Admins see every workspace."}
+                ? t("workspaces.loadingMembers")
+                : t("workspaces.membersSeeThisWorkspaceS")}
             </FormHelperText>
           </FormControl>
           {editing && !editing.is_default && (
@@ -175,7 +177,7 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
                 />
               }
               label={
-                form.is_active ? "Active" : "Deactivated: hidden from its members, kept for admins"
+                form.is_active ? t("workspaces.active") : t("workspaces.deactivatedHiddenFromItsMembers")
               }
             />
           )}
@@ -183,10 +185,10 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={busy} color="inherit">
-          Cancel
+          {t("workspaces.cancel")}
         </Button>
         <Button onClick={submit} disabled={busy || !form.name.trim()} variant="contained">
-          {busy ? "Saving…" : editing ? "Save changes" : "Create workspace"}
+          {busy ? t("workspaces.saving") : editing ? t("workspaces.saveChanges") : t("workspaces.createWorkspace")}
         </Button>
       </DialogActions>
     </Dialog>
@@ -194,6 +196,7 @@ function WorkspaceForm({ open, editing, accounts, onClose, onSaved }) {
 }
 
 export default function Workspaces() {
+  const { t } = useTranslation();
   const toast = useToast();
   const workspace = useWorkspace();
   const { data, error, loading, refresh } = useAsync(({ signal }) => workspacesApi.list({ signal }), []);
@@ -217,7 +220,7 @@ export default function Workspaces() {
     setBusy(true);
     try {
       await workspacesApi.remove(target.workspace_id);
-      toast.success(`"${target.name}" deleted.`);
+      toast.success(t("workspaces.nameDeleted", { name: target.name }));
       setPendingDelete(null);
       changed();
     } catch (err) {
@@ -230,8 +233,8 @@ export default function Workspaces() {
   return (
     <Box>
       <PageHeader
-        title="Workspaces"
-        subtitle="Each workspace has its own cameras, incidents and shopper analytics. Members see only their workspaces; admins see all of them."
+        title={t("workspaces.workspaces")}
+        subtitle={t("workspaces.eachWorkspaceHasItsOwn")}
         actions={[
           <Button
             key="add"
@@ -242,10 +245,10 @@ export default function Workspaces() {
               setFormOpen(true);
             }}
           >
-            New workspace
+            {t("workspaces.newWorkspace")}
           </Button>,
           <Button key="refresh" onClick={refresh} startIcon={<RefreshIcon />}>
-            Refresh
+            {t("workspaces.refresh")}
           </Button>,
         ]}
       />
@@ -253,19 +256,19 @@ export default function Workspaces() {
       <ErrorState error={error} onRetry={refresh} />
 
       {loading && !data ? (
-        <Loading label="Loading workspaces…" />
+        <Loading label={t("workspaces.loadingWorkspaces")} />
       ) : rows.length ? (
         <Card>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Name</TableCell>
-                  <TableCell align="right">Cameras</TableCell>
-                  <TableCell align="right">Members</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Created</TableCell>
-                  <TableCell align="right">Actions</TableCell>
+                  <TableCell>{t("workspaces.name")}</TableCell>
+                  <TableCell align="right">{t("workspaces.cameras")}</TableCell>
+                  <TableCell align="right">{t("workspaces.members")}</TableCell>
+                  <TableCell>{t("workspaces.status")}</TableCell>
+                  <TableCell>{t("workspaces.created")}</TableCell>
+                  <TableCell align="right">{t("workspaces.actions")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -275,7 +278,7 @@ export default function Workspaces() {
                       <Typography variant="body2" sx={{ fontWeight: 600 }}>
                         {row.name}
                         {row.is_default && (
-                          <Chip size="small" label="default" variant="outlined" sx={{ ml: 1 }} />
+                          <Chip size="small" label={t("workspaces.default")} variant="outlined" sx={{ ml: 1 }} />
                         )}
                       </Typography>
                       {row.description && (
@@ -289,7 +292,7 @@ export default function Workspaces() {
                     <TableCell>
                       <Chip
                         size="small"
-                        label={row.is_active ? "active" : "deactivated"}
+                        label={row.is_active ? t("workspaces.active2") : t("workspaces.deactivated")}
                         color={row.is_active ? "success" : "default"}
                         variant={row.is_active ? "outlined" : "filled"}
                       />
@@ -297,10 +300,10 @@ export default function Workspaces() {
                     <TableCell>{formatDateTime(row.created_at)}</TableCell>
                     <TableCell align="right">
                       <Stack direction="row" spacing={0.5} justifyContent="flex-end">
-                        <Tooltip title="Edit">
+                        <Tooltip title={t("workspaces.edit")}>
                           <IconButton
                             size="small"
-                            aria-label="Edit"
+                            aria-label={t("workspaces.edit")}
                             onClick={() => {
                               setEditing(row);
                               setFormOpen(true);
@@ -309,11 +312,11 @@ export default function Workspaces() {
                             <EditIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title={row.is_default ? "The Default workspace cannot be deleted" : "Delete"}>
+                        <Tooltip title={row.is_default ? t("workspaces.theDefaultWorkspaceCannotBe") : t("workspaces.delete")}>
                           <span>
                             <IconButton
                               size="small"
-                              aria-label="Delete"
+                              aria-label={t("workspaces.delete")}
                               disabled={row.is_default}
                               onClick={() => setPendingDelete(row)}
                             >
@@ -330,7 +333,7 @@ export default function Workspaces() {
           </TableContainer>
         </Card>
       ) : (
-        <EmptyState title="No workspaces" icon={<WorkspacesIcon fontSize="inherit" />} />
+        <EmptyState title={t("workspaces.noWorkspaces")} icon={<WorkspacesIcon fontSize="inherit" />} />
       )}
 
       <WorkspaceForm
@@ -346,12 +349,12 @@ export default function Workspaces() {
 
       <ConfirmDialog
         open={Boolean(pendingDelete)}
-        title="Delete workspace?"
+        title={t("workspaces.deleteWorkspace")}
         description={
           pendingDelete &&
-          `"${pendingDelete.name}" is deleted with its ${pendingDelete.camera_count} camera(s) and every incident, clip and shopper session in it. This cannot be undone.`
+          t("workspaces.nameIsDeletedWithIts", { name: pendingDelete.name, camera_count: pendingDelete.camera_count })
         }
-        confirmLabel="Delete workspace"
+        confirmLabel={t("workspaces.deleteWorkspace2")}
         confirmColor="error"
         busy={busy}
         onConfirm={confirmDelete}

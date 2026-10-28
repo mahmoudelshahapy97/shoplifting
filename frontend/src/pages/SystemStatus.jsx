@@ -26,6 +26,7 @@ import { useAsync } from "../hooks/useAsync";
 import { usePolling } from "../hooks/usePolling";
 import { POLL_INTERVAL_MS } from "../utils/constants";
 import { formatDateTime, formatScore } from "../utils/format";
+import { useTranslation } from "react-i18next";
 
 function ConfigGroup({ title, values, formatter }) {
   return (
@@ -66,6 +67,7 @@ function ConfigGroup({ title, values, formatter }) {
  * alert fires later than expected — or does not fire at all.
  */
 export default function SystemStatus() {
+  const { t } = useTranslation();
   const probe = usePolling(({ signal }) => health.live({ signal }), {
     intervalMs: POLL_INTERVAL_MS * 2,
   });
@@ -87,54 +89,54 @@ export default function SystemStatus() {
   return (
     <Box>
       <PageHeader
-        title="Workers & config"
-        subtitle="What the API is running, and the tuning values it is running with."
+        title={t("systemStatus.workersConfig")}
+        subtitle={t("systemStatus.whatTheApiIsRunning")}
         actions={[
           <Button key="refresh" onClick={refreshAll} startIcon={<RefreshIcon />}>
-            Refresh
+            {t("systemStatus.refresh")}
           </Button>,
           <Button key="docs" component="a" href="/docs" target="_blank" rel="noreferrer">
-            API docs
+            {t("systemStatus.apiDocs")}
           </Button>,
         ]}
       />
 
-      <ErrorState error={probe.error} onRetry={probe.refresh} title="The API is not answering" />
+      <ErrorState error={probe.error} onRetry={probe.refresh} title={t("systemStatus.theApiIsNotAnswering")} />
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="API"
+            label={t("systemStatus.api")}
             value={probe.data?.status ? probe.data.status : "—"}
-            hint={probe.data?.version ? `v${probe.data.version}` : "Unknown version"}
+            hint={probe.data?.version ? `v${probe.data.version}` : t("systemStatus.unknownVersion")}
             color={probe.data?.status === "healthy" ? "success" : "warning"}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="Database"
+            label={t("systemStatus.database")}
             value={probe.data?.db_connection_ok ? "Connected" : "Unavailable"}
             hint={
               probe.data?.pool_stats
-                ? `${probe.data.pool_stats.size} of ${probe.data.pool_stats.max} connections, ${probe.data.pool_stats.idle} idle`
-                : "No pool statistics"
+                ? t("systemStatus.sizeOfMaxConnectionsIdle", { size: probe.data.pool_stats.size, max: probe.data.pool_stats.max, idle: probe.data.pool_stats.idle })
+                : t("systemStatus.noPoolStatistics")
             }
             color={probe.data?.db_connection_ok ? "success" : "error"}
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="Workers running"
+            label={t("systemStatus.workersRunning")}
             value={`${workerData?.running ?? 0} / ${workerData?.count ?? 0}`}
-            hint={`${workerData?.connected ?? 0} with a live stream`}
+            hint={t("systemStatus.v0WithALiveStream", { v0: workerData?.connected ?? 0 })}
             color="info"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="Inference device"
+            label={t("systemStatus.inferenceDevice")}
             value={effective?.device ? String(effective.device).toUpperCase() : "—"}
-            hint={effective?.environment ? `${effective.environment} environment` : ""}
+            hint={effective?.environment ? t("systemStatus.environmentEnvironment", { environment: effective.environment }) : ""}
             color="secondary"
           />
         </Grid>
@@ -143,27 +145,26 @@ export default function SystemStatus() {
           <Card>
             <Box sx={{ px: 2.5, py: 2 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                Camera workers
+                {t("systemStatus.cameraWorkers")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Every worker the stream manager currently holds. A worker that is running but not
-                connected is retrying its RTSP source.
+                {t("systemStatus.everyWorkerTheStreamManager")}
               </Typography>
             </Box>
             <Divider />
             {workers.loading && !workers.data ? (
-              <Loading label="Loading workers…" />
+              <Loading label={t("systemStatus.loadingWorkers")} />
             ) : rows.length ? (
               <Table size="small">
                 <TableHead>
                   <TableRow>
-                    <TableCell>Camera</TableCell>
-                    <TableCell>State</TableCell>
-                    <TableCell>Started</TableCell>
-                    <TableCell align="right">Frames</TableCell>
-                    <TableCell align="right">Incidents</TableCell>
-                    <TableCell align="right">In view</TableCell>
-                    <TableCell>Last error</TableCell>
+                    <TableCell>{t("systemStatus.camera")}</TableCell>
+                    <TableCell>{t("systemStatus.state")}</TableCell>
+                    <TableCell>{t("systemStatus.started")}</TableCell>
+                    <TableCell align="right">{t("systemStatus.frames")}</TableCell>
+                    <TableCell align="right">{t("systemStatus.incidents")}</TableCell>
+                    <TableCell align="right">{t("systemStatus.inView")}</TableCell>
+                    <TableCell>{t("systemStatus.lastError")}</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -188,10 +189,10 @@ export default function SystemStatus() {
                           }
                           label={
                             !worker.running
-                              ? "Stopped"
+                              ? t("systemStatus.stopped")
                               : worker.connected
-                                ? "Streaming"
-                                : "Reconnecting"
+                                ? t("systemStatus.streaming")
+                                : t("systemStatus.reconnecting")
                           }
                         />
                       </TableCell>
@@ -214,12 +215,12 @@ export default function SystemStatus() {
               </Table>
             ) : (
               <EmptyState
-                title="No workers"
-                description="Nothing is being analysed. Enable a camera and start its worker."
+                title={t("systemStatus.noWorkers")}
+                description={t("systemStatus.nothingIsBeingAnalysedEnable")}
                 icon={<TuneIcon fontSize="inherit" />}
                 action={
                   <Button component={RouterLink} to="/cameras" variant="outlined">
-                    Go to cameras
+                    {t("systemStatus.goToCameras")}
                   </Button>
                 }
               />
@@ -229,30 +230,30 @@ export default function SystemStatus() {
 
         {config.error ? (
           <Grid size={12}>
-            <ErrorState error={config.error} onRetry={config.refresh} title="Could not read config" />
+            <ErrorState error={config.error} onRetry={config.refresh} title={t("systemStatus.couldNotReadConfig")} />
           </Grid>
         ) : null}
 
         {effective ? (
           <>
             <Grid size={{ xs: 12, md: 6 }}>
-              <ConfigGroup title="Models" values={effective.detection} />
+              <ConfigGroup title={t("systemStatus.models")} values={effective.detection} />
             </Grid>
             <Grid size={{ xs: 12, md: 6 }}>
               <ConfigGroup
-                title="Shoplifting detector"
+                title={t("systemStatus.shopliftingDetector")}
                 values={effective.shoplifting}
                 formatter={(key, value) => (key === "threshold" ? formatScore(value, 0) : undefined)}
               />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <ConfigGroup title="Stream" values={effective.stream} />
+              <ConfigGroup title={t("systemStatus.stream")} values={effective.stream} />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <ConfigGroup title="Evidence clips" values={effective.clips} />
+              <ConfigGroup title={t("systemStatus.evidenceClips")} values={effective.clips} />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <ConfigGroup title="Retention" values={effective.retention} />
+              <ConfigGroup title={t("systemStatus.retention")} values={effective.retention} />
             </Grid>
           </>
         ) : null}

@@ -26,11 +26,13 @@ import { EventStatusChip, SeverityChip } from "../components/StatusChips";
 import { useToast } from "../components/Toast";
 import { errorMessage } from "../api/client";
 import { events as eventApi } from "../api/endpoints";
+import { ExportButton } from "@insighteye/ui";
 import { useAuth } from "../auth/AuthContext";
 import { useAsync } from "../hooks/useAsync";
 import { useIncidentFilters } from "../hooks/useIncidentFilters";
 import { ACTION_LABEL, ACTIONS, PAGE_SIZE, PAGE_SIZE_OPTIONS } from "../utils/constants";
 import { describePlace, formatDateTime, formatMoney, formatScore, fromNow } from "../utils/format";
+import { useTranslation } from "react-i18next";
 
 /**
  * The evidence first: the clip when there is one (the alert frame as its
@@ -38,6 +40,7 @@ import { describePlace, formatDateTime, formatMoney, formatScore, fromNow } from
  * dozen videos before anyone presses play.
  */
 function Evidence({ event }) {
+  const { t } = useTranslation();
   if (event.has_clip) {
     return (
       <Box
@@ -53,16 +56,17 @@ function Evidence({ event }) {
   return (
     <ItemImage
       src={event.has_frame ? eventApi.frameUrl(event.event_id) : null}
-      alt={`Incident frame from ${event.camera_name}`}
+      alt={t("events.incidentFrameFromCameraName", { camera_name: event.camera_name })}
       height={200}
       fit="contain"
-      fallbackLabel="No frame stored"
+      fallbackLabel={t("events.noFrameStored")}
     />
   );
 }
 
 /** Inline "what did we do about it", saved as soon as it is picked. */
 function ActionSelect({ event, disabled, onSaved }) {
+  const { t } = useTranslation();
   const toast = useToast();
   const [value, setValue] = useState(event.action_taken || "");
   const [saving, setSaving] = useState(false);
@@ -91,14 +95,14 @@ function ActionSelect({ event, disabled, onSaved }) {
     <TextField
       select
       size="small"
-      label="Action taken"
+      label={t("events.actionTaken")}
       value={value}
       disabled={disabled || saving}
       onChange={(e) => save(e.target.value)}
       fullWidth
     >
       <MenuItem value="">
-        <em>Not recorded</em>
+        <em>{t("events.notRecorded")}</em>
       </MenuItem>
       {ACTIONS.map((action) => (
         <MenuItem key={action} value={action}>
@@ -110,6 +114,7 @@ function ActionSelect({ event, disabled, onSaved }) {
 }
 
 function IncidentCard({ event, canTriage, onSaved }) {
+  const { t } = useTranslation();
   return (
     <Card sx={{ height: "100%", display: "flex", flexDirection: "column" }} data-testid="incident-card">
       <Evidence event={event} />
@@ -118,11 +123,11 @@ function IncidentCard({ event, canTriage, onSaved }) {
           <Stack direction="row" spacing={0.75} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
             <SeverityChip severity={event.severity} />
             <EventStatusChip status={event.status} />
-            <Tooltip title="Smoothed shoplifting probability when the alert fired">
+            <Tooltip title={t("events.smoothedShopliftingProbabilityWhenTh")}>
               <Chip size="small" variant="outlined" label={`p ${formatScore(event.confidence, 0)}`} />
             </Tooltip>
             {event.detection_method === "test" ? (
-              <Chip size="small" variant="outlined" color="info" label="Test" />
+              <Chip size="small" variant="outlined" color="info" label={t("events.test")} />
             ) : null}
           </Stack>
           <Typography variant="subtitle2" noWrap>
@@ -138,7 +143,7 @@ function IncidentCard({ event, canTriage, onSaved }) {
           </Tooltip>
           {event.estimated_value !== null || event.items_stolen?.length ? (
             <Typography variant="body2" sx={{ mt: 1 }}>
-              {event.items_stolen?.length ? event.items_stolen.join(", ") : "Items not recorded"}
+              {event.items_stolen?.length ? event.items_stolen.join(", ") : t("events.itemsNotRecorded")}
               {event.estimated_value !== null ? ` · ${formatMoney(event.estimated_value)}` : ""}
             </Typography>
           ) : null}
@@ -153,6 +158,7 @@ function IncidentCard({ event, canTriage, onSaved }) {
 }
 
 export default function Events() {
+  const { t } = useTranslation();
   const filters = useIncidentFilters();
   const { params, setParams, apiParams } = filters;
   const { hasRole } = useAuth();
@@ -181,11 +187,12 @@ export default function Events() {
   return (
     <Box>
       <PageHeader
-        title="Incidents"
-        subtitle="People the classifier judged to be shoplifting, newest first. Triage each one and record what was taken."
+        title={t("events.incidents")}
+        subtitle={t("events.peopleTheClassifierJudgedTo")}
         actions={[
+          <ExportButton key="export" fetchBlob={() => eventApi.exportBlob({ ...apiParams })} filenameStem="incidents" />,
           <Button key="refresh" onClick={refresh} startIcon={<RefreshIcon />}>
-            Refresh
+            {t("events.refresh")}
           </Button>,
         ]}
       />
@@ -195,17 +202,17 @@ export default function Events() {
       <ErrorState error={error} onRetry={refresh} />
 
       {loading && !data ? (
-        <Loading label="Loading incidents…" />
+        <Loading label={t("events.loadingIncidents")} />
       ) : rows.length ? (
         <>
           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1.5 }}>
             <Typography variant="body2" color="text.secondary" data-testid="incident-total">
-              {data.total} incident{data.total === 1 ? "" : "s"}
+              {t("events.totalIncidents", { count: data.total })}
             </Typography>
             <TextField
               select
               size="small"
-              label="Per page"
+              label={t("events.perPage")}
               value={perPage}
               onChange={(e) => setPage("per_page", e.target.value)}
               sx={{ width: 110 }}
@@ -244,21 +251,21 @@ export default function Events() {
       ) : (
         <Card>
           <EmptyState
-            title={filters.active ? "Nothing matches these filters" : "No incidents yet"}
+            title={filters.active ? t("events.nothingMatchesTheseFilters") : t("events.noIncidentsYet")}
             description={
               filters.active
-                ? "Try widening the place, date, status or severity filter."
-                : "An incident appears here as soon as a camera's classifier judges someone to be shoplifting."
+                ? t("events.tryWideningThePlaceDate")
+                : t("events.anIncidentAppearsHereAs")
             }
             icon={<LocalPoliceIcon fontSize="inherit" />}
             action={
               filters.active ? (
                 <Button variant="outlined" onClick={filters.clear}>
-                  Clear filters
+                  {t("events.clearFilters")}
                 </Button>
               ) : (
                 <Button variant="outlined" component={RouterLink} to="/cameras">
-                  Check cameras
+                  {t("events.checkCameras")}
                 </Button>
               )
             }

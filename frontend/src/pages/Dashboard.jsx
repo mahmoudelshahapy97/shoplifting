@@ -28,10 +28,11 @@ import { EnabledChip, EventStatusChip, SeverityChip } from "../components/Status
 import { analytics, cameras, events } from "../api/endpoints";
 import { useAsync } from "../hooks/useAsync";
 import { usePolling } from "../hooks/usePolling";
-import { useNotifications } from "../notifications/NotificationContext";
+import { useNotifications } from "@insighteye/ui";
 import { useWorkspace } from "../workspace/WorkspaceContext";
 import { POLL_INTERVAL_MS, REALTIME_POLL_MS } from "../utils/constants";
 import { describePlace, formatMoney, formatNumber, formatScore, fromNow } from "../utils/format";
+import { useTranslation } from "react-i18next";
 
 const TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
@@ -67,6 +68,7 @@ function Panel({ title, link, linkLabel, children, subtitle }) {
  * first. Polled every 10 s, as in InsightEye.
  */
 function RealTimeMonitor() {
+  const { t } = useTranslation();
   const live = usePolling(({ signal }) => analytics.realTime({ minutes: 2 }, { signal }), {
     intervalMs: REALTIME_POLL_MS,
   });
@@ -79,12 +81,12 @@ function RealTimeMonitor() {
       </Box>
     );
   }
-  if (!data) return <Loading label="Watching…" height={180} />;
+  if (!data) return <Loading label={t("dashboard.watching")} height={180} />;
   if (!data.people.length) {
     return (
       <EmptyState
-        title="Nobody looks suspicious right now"
-        description={`${data.people_seen} ${data.people_seen === 1 ? "person" : "people"} judged in the last ${data.minutes} minutes; none above ${formatScore(data.min_probability, 0)}.`}
+        title={t("dashboard.nobodyLooksSuspiciousRightNow")}
+        description={t("dashboard.peopleJudged", { count: data.people_seen, minutes: data.minutes, threshold: formatScore(data.min_probability, 0) })}
         icon={<SensorsIcon fontSize="inherit" />}
       />
     );
@@ -127,6 +129,7 @@ function RealTimeMonitor() {
 }
 
 export default function Dashboard() {
+  const { t } = useTranslation();
   // The incident counters are worth polling: a new one should surface without
   // anyone reaching for refresh.
   const stats = usePolling(({ signal }) => events.stats(undefined, { signal }), {
@@ -167,47 +170,47 @@ export default function Dashboard() {
   return (
     <Box>
       <PageHeader
-        title="Dashboard"
-        subtitle="Loss prevention at a glance: what the cameras flagged, who they are watching now, and what still needs triage."
+        title={t("dashboard.dashboard")}
+        subtitle={t("dashboard.lossPreventionAtAGlance")}
         actions={[
           <Button key="incidents" component={RouterLink} to="/events?status=detected,under_review" variant="contained">
-            Open triage queue
+            {t("dashboard.openTriageQueue")}
           </Button>,
           <Button key="refresh" onClick={refreshAll} startIcon={<RefreshIcon />}>
-            Refresh
+            {t("dashboard.refresh")}
           </Button>,
         ]}
       />
 
-      <ErrorState error={stats.error} onRetry={stats.refresh} title="Could not load the counters" />
+      <ErrorState error={stats.error} onRetry={stats.refresh} title={t("dashboard.couldNotLoadTheCounters")} />
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="Open incidents"
+            label={t("dashboard.openIncidents")}
             value={formatNumber(incidentStats.open ?? 0)}
-            hint={`${formatNumber(incidentStats.open_high ?? 0)} high or critical`}
+            hint={t("dashboard.v0HighOrCritical", { v0: formatNumber(incidentStats.open_high ?? 0) })}
             icon={<LocalPoliceIcon />}
             color="error"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="Incidents, last 24h"
+            label={t("dashboard.incidentsLast24h")}
             value={formatNumber(incidentStats.last_24h ?? 0)}
-            hint={incidentStats.last_event_at ? `Most recent ${fromNow(incidentStats.last_event_at)}` : "Nothing yet"}
+            hint={incidentStats.last_event_at ? t("dashboard.mostRecentV0", { v0: fromNow(incidentStats.last_event_at) }) : t("dashboard.nothingYet")}
             icon={<LocalPoliceIcon />}
             color="warning"
           />
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="Shoppers, last 24h"
+            label={t("dashboard.shoppersLast24h")}
             value={formatNumber(kpis.sessions ?? 0)}
             hint={
               kpis.sessions
-                ? `${formatNumber(kpis.flagged_sessions)} flagged · ${formatNumber(kpis.incidents_per_1000_sessions, 1)} incidents per 1k`
-                : "People tracked across all cameras"
+                ? t("dashboard.v0FlaggedV1IncidentsPer", { v0: formatNumber(kpis.flagged_sessions), v1: formatNumber(kpis.incidents_per_1000_sessions, 1) })
+                : t("dashboard.peopleTrackedAcrossAllCameras")
             }
             icon={<DirectionsWalkIcon />}
             color="info"
@@ -215,22 +218,22 @@ export default function Dashboard() {
         </Grid>
         <Grid size={{ xs: 12, sm: 6, lg: 3 }}>
           <StatCard
-            label="Recorded loss"
+            label={t("dashboard.recordedLoss")}
             value={formatMoney(incidentStats.recorded_loss ?? 0)}
-            hint="What operators logged as taken, all time"
+            hint={t("dashboard.whatOperatorsLoggedAsTaken")}
             icon={<PaidIcon />}
             color="secondary"
           />
         </Grid>
 
         <Grid size={{ xs: 12, lg: 7 }}>
-          <Panel title="Recent incidents" link="/events" linkLabel="View all">
+          <Panel title={t("dashboard.recentIncidents")} link="/events" linkLabel={t("dashboard.viewAll")}>
             {recent.error ? (
               <Box sx={{ p: 2 }}>
                 <ErrorState error={recent.error} onRetry={recent.refresh} />
               </Box>
             ) : recent.loading && !recent.data ? (
-              <Loading label="Loading incidents…" />
+              <Loading label={t("dashboard.loadingIncidents")} />
             ) : recent.data?.events?.length ? (
               <List disablePadding>
                 {recent.data.events.map((event) => (
@@ -252,8 +255,8 @@ export default function Dashboard() {
               </List>
             ) : (
               <EmptyState
-                title="No incidents yet"
-                description="An incident appears here as soon as a camera's classifier judges someone to be shoplifting."
+                title={t("dashboard.noIncidentsYet")}
+                description={t("dashboard.anIncidentAppearsHereAs")}
               />
             )}
           </Panel>
@@ -261,17 +264,17 @@ export default function Dashboard() {
 
         <Grid size={{ xs: 12, lg: 5 }}>
           <Stack spacing={2} sx={{ height: "100%" }}>
-            <Panel title="Real-time activity" subtitle="High-risk people in view, last 2 minutes">
+            <Panel title={t("dashboard.realTimeActivity")} subtitle={t("dashboard.highRiskPeopleInView")}>
               <RealTimeMonitor />
             </Panel>
 
-            <Panel title="Cameras" link="/cameras" linkLabel="Manage">
+            <Panel title={t("dashboard.cameras")} link="/cameras" linkLabel="Manage">
               {cameraList.loading && !cameraList.data ? (
-                <Loading label="Loading cameras…" height={120} />
+                <Loading label={t("dashboard.loadingCameras")} height={120} />
               ) : allCameras.length ? (
                 <>
                   <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, pt: 1.5 }}>
-                    {enabledCount} of {allCameras.length} enabled
+                    {t("dashboard.enabledcountOfLengthEnabled", { enabledCount, length: allCameras.length })}
                   </Typography>
                   <List disablePadding>
                     {allCameras.slice(0, 5).map((camera) => (
@@ -288,12 +291,12 @@ export default function Dashboard() {
                 </>
               ) : (
                 <EmptyState
-                  title="No cameras"
-                  description="Register an RTSP source to start watching the shop floor."
+                  title={t("dashboard.noCameras")}
+                  description={t("dashboard.registerAnRtspSourceTo")}
                   icon={<VideocamIcon fontSize="inherit" />}
                   action={
                     <Button component={RouterLink} to="/cameras/new" variant="contained" size="small">
-                      Add a camera
+                      {t("dashboard.addACamera")}
                     </Button>
                   }
                 />

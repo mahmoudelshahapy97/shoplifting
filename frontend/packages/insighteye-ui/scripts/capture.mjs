@@ -17,7 +17,7 @@ const OUT = process.env.OUT || "/artifacts/screenshots";
 const APP_KEY = process.env.APP_KEY;
 const PAGES = (process.env.PAGES || "dashboard=/")
   .split(",")
-  .map((pair) => pair.split("="))
+  .map((pair) => [pair.slice(0, pair.indexOf("=")), pair.slice(pair.indexOf("=") + 1)])
   .filter(([name, path]) => name && path);
 
 const VARIANTS = [

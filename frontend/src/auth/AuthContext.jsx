@@ -3,6 +3,7 @@ import { auth as authApi } from "../api/endpoints";
 import { errorMessage, setSessionExpiredHandler } from "../api/client";
 import { clearTokens, getAccessToken, getRefreshToken, setTokens } from "./tokenStore";
 import { hasRole } from "./roles";
+import i18n from "i18next";
 
 const AuthContext = createContext(null);
 
@@ -78,7 +79,7 @@ export function AuthProvider({ children }) {
       setStatus("authed");
       return { success: true };
     } catch (err) {
-      return { success: false, message: errorMessage(err) || "Login failed." };
+      return { success: false, message: errorMessage(err) || i18n.t("common:auth.loginFailed") };
     }
   }, []);
 

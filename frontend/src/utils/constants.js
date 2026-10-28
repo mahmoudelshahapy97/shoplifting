@@ -1,3 +1,4 @@
+import i18n from "i18next";
 /**
  * Mirrors the enums in app/schemas/event_schemas.py, app/services/filters.py
  * and app/services/behavior_service.py — keep them in step. The CHECK
@@ -28,10 +29,10 @@ export const ACTION = {
 export const ACTIONS = Object.values(ACTION);
 
 export const ACTION_LABEL = {
-  none: "No action",
-  intervened: "Intervened",
-  police_called: "Police called",
-  pending: "Not recorded",
+  get none() { return i18n.t("constants.noAction"); },
+  get intervened() { return i18n.t("constants.intervened"); },
+  get police_called() { return i18n.t("constants.policeCalled"); },
+  get pending() { return i18n.t("constants.notRecorded"); },
 };
 
 /** The live per-person state the detector reports (behavior_service). */
@@ -73,11 +74,11 @@ export const PERSON_STATUS_COLOR = {
 
 /** camera columns the incident and analytics filters cascade along, in order. */
 export const HIERARCHY = [
-  { key: "location", label: "Location" },
-  { key: "area", label: "Area" },
-  { key: "building", label: "Building" },
-  { key: "floor_level", label: "Floor" },
-  { key: "zone", label: "Zone" },
+  { key: "location", get label() { return i18n.t("constants.location"); } },
+  { key: "area", get label() { return i18n.t("constants.area"); } },
+  { key: "building", get label() { return i18n.t("constants.building"); } },
+  { key: "floor_level", get label() { return i18n.t("constants.floor"); } },
+  { key: "zone", get label() { return i18n.t("constants.zone"); } },
 ];
 
 export const POLL_INTERVAL_MS = Number(import.meta.env.VITE_POLL_INTERVAL_MS) || 5000;

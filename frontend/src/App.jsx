@@ -1,34 +1,19 @@
-import { useCallback, useMemo, useState } from "react";
-import CssBaseline from "@mui/material/CssBaseline";
-import { ThemeProvider } from "@mui/material/styles";
+import { AppProviders } from "@insighteye/ui";
 import { AuthProvider } from "./auth/AuthContext";
-import { ToastProvider } from "./components/Toast";
+import { PlatformBridge, APP_KEY } from "./platform/PlatformBridge";
 import AppRouter from "./routes/AppRouter";
-import { buildTheme } from "./utils/theme";
-
-const MODE_KEY = "shoplifting:color-mode";
+import { WorkspaceProvider } from "./workspace/WorkspaceContext";
 
 export default function App() {
-  const [mode, setMode] = useState(() => localStorage.getItem(MODE_KEY) || "dark");
-
-  const toggleMode = useCallback(() => {
-    setMode((current) => {
-      const next = current === "dark" ? "light" : "dark";
-      localStorage.setItem(MODE_KEY, next);
-      return next;
-    });
-  }, []);
-
-  const theme = useMemo(() => buildTheme(mode), [mode]);
-
   return (
-    <ThemeProvider theme={theme}>
-      <CssBaseline />
-      <ToastProvider>
-        <AuthProvider>
-          <AppRouter mode={mode} onToggleMode={toggleMode} />
-        </AuthProvider>
-      </ToastProvider>
-    </ThemeProvider>
+    <AppProviders appKey={APP_KEY}>
+      <AuthProvider>
+        <WorkspaceProvider>
+          <PlatformBridge>
+            <AppRouter />
+          </PlatformBridge>
+        </WorkspaceProvider>
+      </AuthProvider>
+    </AppProviders>
   );
 }

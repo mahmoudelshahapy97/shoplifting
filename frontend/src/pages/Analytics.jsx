@@ -58,6 +58,8 @@ import {
   fromNow,
   titleCase,
 } from "../utils/format";
+import { useTranslation } from "react-i18next";
+import i18n from "i18next";
 
 // Registered here, not left to whichever chart module happened to load first
 // (InsightEye's charts relied on that and broke when imported alone).
@@ -73,24 +75,24 @@ ChartJS.register(
 );
 
 const WINDOWS = [
-  { value: 1, label: "Last 24 hours" },
-  { value: 7, label: "Last 7 days" },
-  { value: 14, label: "Last 14 days" },
-  { value: 30, label: "Last 30 days" },
-  { value: 90, label: "Last 90 days" },
+  { value: 1, get label() { return i18n.t("analytics.last24Hours"); } },
+  { value: 7, get label() { return i18n.t("analytics.last7Days"); } },
+  { value: 14, get label() { return i18n.t("analytics.last14Days"); } },
+  { value: 30, get label() { return i18n.t("analytics.last30Days"); } },
+  { value: 90, get label() { return i18n.t("analytics.last90Days"); } },
 ];
 
 // Buckets are cut in the viewer's zone, so "busiest hour" means their hour.
 const TIMEZONE = Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC";
 
 const TABS = [
-  { key: "overview", label: "Overview", report: analytics.summary },
-  { key: "executive", label: "Executive summary", report: analytics.executiveSummary },
-  { key: "hotspots", label: "Hotspots", report: analytics.hotspots },
-  { key: "confidence", label: "Model confidence", report: analytics.confidenceAudit },
-  { key: "high-value", label: "High-value", report: analytics.highValue },
-  { key: "traffic", label: "Traffic & regional", report: analytics.traffic },
-  { key: "operations", label: "Actions & efficiency", report: null },
+  { key: "overview", get label() { return i18n.t("analytics.overview"); }, report: analytics.summary },
+  { key: "executive", get label() { return i18n.t("analytics.executiveSummary"); }, report: analytics.executiveSummary },
+  { key: "hotspots", get label() { return i18n.t("analytics.hotspots"); }, report: analytics.hotspots },
+  { key: "confidence", get label() { return i18n.t("analytics.modelConfidence"); }, report: analytics.confidenceAudit },
+  { key: "high-value", get label() { return i18n.t("analytics.highValue"); }, report: analytics.highValue },
+  { key: "traffic", get label() { return i18n.t("analytics.trafficRegional"); }, report: analytics.traffic },
+  { key: "operations", get label() { return i18n.t("analytics.actionsEfficiency"); }, report: null },
 ];
 
 const formatPct = (value) =>
@@ -112,7 +114,7 @@ function ChartCard({ title, subtitle, children, height }) {
   );
 }
 
-function NoData({ children = "Nothing in this window. Try a longer window or fewer filters." }) {
+function NoData({ children = i18n.t("analytics.nothingInWindow") }) {
   return (
     <Box sx={{ height: "100%", display: "flex", alignItems: "center", justifyContent: "center", minHeight: 120 }}>
       <Typography variant="body2" color="text.secondary" textAlign="center">
@@ -208,13 +210,14 @@ function pivot(rows, { dateKey = "day", categoryKey, valueKey }) {
 
 // ------------------------------------------------------------------ overview
 function Overview({ data, days, kit }) {
+  const { t } = useTranslation();
   const { kpis } = data;
   const hourly = data.window.bucket === "hour";
   const trend = {
     labels: data.series.map((pt) => dayjs(pt.bucket_start).format(hourly ? "HH:mm" : "MMM D")),
     datasets: [
       {
-        label: "Incidents",
+        label: t("analytics.incidents"),
         data: data.series.map((pt) => pt.incidents),
         borderColor: kit.p.primary.main,
         backgroundColor: alpha(kit.p.primary.main, 0.14),
@@ -225,7 +228,7 @@ function Overview({ data, days, kit }) {
         pointHoverRadius: 5,
       },
       {
-        label: "Dismissed",
+        label: t("analytics.dismissed"),
         data: data.series.map((pt) => pt.dismissed),
         borderColor: kit.p.grey[500],
         backgroundColor: kit.p.grey[500],
@@ -242,36 +245,36 @@ function Overview({ data, days, kit }) {
       <Grid container spacing={2} sx={{ mb: 2 }}>
         <Grid size={{ xs: 6, md: 3 }}>
           <StatCard
-            label="Incidents"
+            label={t("analytics.incidents")}
             value={formatNumber(kpis.incidents)}
-            hint={`${formatNumber(kpis.open)} open · ${formatNumber(kpis.high_severity)} high or critical`}
+            hint={t("analytics.v0OpenV1HighOr", { v0: formatNumber(kpis.open), v1: formatNumber(kpis.high_severity) })}
             icon={<LocalPoliceIcon />}
             color="error"
           />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <StatCard
-            label="False-positive rate"
+            label={t("analytics.falsePositiveRate")}
             value={formatPct(kpis.false_positive_pct)}
-            hint={`${formatNumber(kpis.dismissed)} dismissed of those ruled on`}
+            hint={t("analytics.v0DismissedOfThoseRuled", { v0: formatNumber(kpis.dismissed) })}
             icon={<BlockIcon />}
             color="secondary"
           />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <StatCard
-            label="Recorded loss"
+            label={t("analytics.recordedLoss")}
             value={formatMoney(kpis.recorded_loss)}
-            hint={`${formatNumber(kpis.items_stolen)} item(s) logged`}
+            hint={t("analytics.v0ItemSLogged", { v0: formatNumber(kpis.items_stolen) })}
             icon={<PaidIcon />}
             color="warning"
           />
         </Grid>
         <Grid size={{ xs: 6, md: 3 }}>
           <StatCard
-            label="Median time to respond"
+            label={t("analytics.medianTimeToRespond")}
             value={formatDuration(kpis.median_response_s)}
-            hint={`${formatNumber(kpis.sessions)} shoppers · ${formatNumber(kpis.incidents_per_1000_sessions, 1)} per 1k`}
+            hint={t("analytics.v0ShoppersV1Per1k", { v0: formatNumber(kpis.sessions), v1: formatNumber(kpis.incidents_per_1000_sessions, 1) })}
             icon={<TimerIcon />}
             color="info"
           />
@@ -280,25 +283,25 @@ function Overview({ data, days, kit }) {
       {!kpis.incidents ? (
         <Card>
           <EmptyState
-            title={`No incidents in the ${WINDOWS.find((w) => w.value === days)?.label.toLowerCase() || "window"}`}
-            description="Nobody was judged to be shoplifting. Try a longer window or fewer filters."
+            title={t("analytics.noIncidentsInTheV0", { v0: WINDOWS.find((w) => w.value === days)?.label.toLowerCase() || "window" })}
+            description={t("analytics.nobodyWasJudgedToBe")}
           />
         </Card>
       ) : (
         <Grid container spacing={2}>
           <Grid size={12}>
-            <ChartCard title={hourly ? "Incidents per hour" : "Incidents per day"} height={280}>
+            <ChartCard title={hourly ? t("analytics.incidentsPerHour") : t("analytics.incidentsPerDay")} height={280}>
               <Line data={trend} options={kit.base} />
             </ChartCard>
           </Grid>
           <Grid size={{ xs: 12, lg: 7 }}>
-            <ChartCard title="By camera" subtitle="Valid incidents and dismissals per camera" height={Math.max(160, cameras.length * 32 + 48)}>
+            <ChartCard title={t("analytics.byCamera")} subtitle={t("analytics.validIncidentsAndDismissalsPer")} height={Math.max(160, cameras.length * 32 + 48)}>
               <Bar
                 data={{
                   labels: cameras.map((r) => r.camera_name),
                   datasets: [
-                    { label: "Incidents", data: cameras.map((r) => r.incidents - r.dismissed), backgroundColor: kit.p.primary.main, ...kit.bar },
-                    { label: "Dismissed", data: cameras.map((r) => r.dismissed), backgroundColor: kit.p.grey[500], ...kit.bar },
+                    { label: t("analytics.incidents"), data: cameras.map((r) => r.incidents - r.dismissed), backgroundColor: kit.p.primary.main, ...kit.bar },
+                    { label: t("analytics.dismissed"), data: cameras.map((r) => r.dismissed), backgroundColor: kit.p.grey[500], ...kit.bar },
                   ],
                 }}
                 options={{ ...kit.horizontal, scales: { x: { ...kit.horizontal.scales.x, stacked: true }, y: { ...kit.horizontal.scales.y, stacked: true } } }}
@@ -306,13 +309,13 @@ function Overview({ data, days, kit }) {
             </ChartCard>
           </Grid>
           <Grid size={{ xs: 12, lg: 5 }}>
-            <ChartCard title="By severity" subtitle="From each person's peak probability" height={220}>
+            <ChartCard title={t("analytics.bySeverity")} subtitle={t("analytics.fromEachPersonSPeak")} height={220}>
               <Bar
                 data={{
                   labels: data.by_severity.map((r) => titleCase(r.severity)),
                   datasets: [
                     {
-                      label: "Incidents",
+                      label: t("analytics.incidents"),
                       data: data.by_severity.map((r) => r.incidents),
                       backgroundColor: data.by_severity.map((r) => kit.severity[r.severity]),
                       ...kit.bar,
@@ -324,7 +327,7 @@ function Overview({ data, days, kit }) {
             </ChartCard>
           </Grid>
           <Grid size={12}>
-            <ChartCard title="When it happens" subtitle="Incidents by weekday and hour of day — hover a cell for the count">
+            <ChartCard title={t("analytics.whenItHappens")} subtitle={t("analytics.incidentsByWeekdayAndHour")}>
               <HourHeatmap cells={data.heatmap} unit="incident" />
             </ChartCard>
           </Grid>
@@ -336,13 +339,14 @@ function Overview({ data, days, kit }) {
 
 // ----------------------------------------------------------------- executive
 function Executive({ data, kit }) {
+  const { t } = useTranslation();
   const trend = data.trend;
   const hourly = data.window.bucket === "hour";
   const lineData = {
     labels: trend.map((pt) => dayjs(pt.bucket_start).format(hourly ? "HH:mm" : "MMM D")),
     datasets: [
       {
-        label: "Recorded loss",
+        label: t("analytics.recordedLoss"),
         data: trend.map((pt) => pt.total_value),
         borderColor: kit.p.warning.main,
         backgroundColor: alpha(kit.p.warning.main, 0.14),
@@ -354,7 +358,7 @@ function Executive({ data, kit }) {
         pointHoverRadius: 5,
       },
       {
-        label: "Incidents",
+        label: t("analytics.incidents"),
         data: trend.map((pt) => pt.incident_count),
         borderColor: kit.p.primary.main,
         backgroundColor: kit.p.primary.main,
@@ -379,8 +383,8 @@ function Executive({ data, kit }) {
         callbacks: {
           label: (item) =>
             item.dataset.yAxisID === "value"
-              ? `Recorded loss: ${formatMoney(item.raw)}`
-              : `Incidents: ${item.raw}`,
+              ? t("analytics.recordedLossValue", { value: formatMoney(item.raw) })
+              : t("analytics.incidentsCount", { count: item.raw }),
         },
       },
     },
@@ -391,20 +395,20 @@ function Executive({ data, kit }) {
     <Grid container spacing={2}>
       <Grid size={12}>
         <ChartCard
-          title="Loss and incident trend"
-          subtitle="Dismissed incidents left out. Loss is what operators recorded when they triaged."
+          title={t("analytics.lossAndIncidentTrend")}
+          subtitle={t("analytics.dismissedIncidentsLeftOutLoss")}
           height={300}
         >
           {total ? <Line data={lineData} options={lineOptions} /> : <NoData />}
         </ChartCard>
       </Grid>
       <Grid size={{ xs: 12, lg: 6 }}>
-        <ChartCard title="Incident frequency by location" height={Math.max(180, locations.length * 34 + 48)}>
+        <ChartCard title={t("analytics.incidentFrequencyByLocation")} height={Math.max(180, locations.length * 34 + 48)}>
           {locations.length ? (
             <Bar
               data={{
                 labels: locations.map((r) => r.location),
-                datasets: [{ label: "Incidents", data: locations.map((r) => r.incident_count), backgroundColor: kit.p.primary.main, ...kit.bar }],
+                datasets: [{ label: t("analytics.incidents"), data: locations.map((r) => r.incident_count), backgroundColor: kit.p.primary.main, ...kit.bar }],
               }}
               options={{ ...kit.horizontal, plugins: { ...kit.base.plugins, legend: { display: false } } }}
             />
@@ -416,15 +420,15 @@ function Executive({ data, kit }) {
       <Grid size={{ xs: 12, lg: 6 }}>
         <Card sx={{ height: "100%" }}>
           <CardContent sx={{ pb: 0 }}>
-            <Typography variant="subtitle2">By camera</Typography>
+            <Typography variant="subtitle2">{t("analytics.byCamera")}</Typography>
           </CardContent>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Camera</TableCell>
-                  <TableCell align="right">Incidents</TableCell>
-                  <TableCell align="right">Recorded loss</TableCell>
+                  <TableCell>{t("analytics.camera")}</TableCell>
+                  <TableCell align="right">{t("analytics.incidents")}</TableCell>
+                  <TableCell align="right">{t("analytics.recordedLoss")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -451,6 +455,7 @@ function Executive({ data, kit }) {
 // ------------------------------------------------------------------ hotspots
 /** Zone rows x day columns, shaded by incident count (InsightEye's CSS-grid heatmap). */
 function ZoneDayHeatmap({ data, kit }) {
+  const { t } = useTranslation();
   const counts = {};
   data.heatmap.forEach((c) => {
     counts[`${c.zone}|${c.day}`] = c.incidents;
@@ -482,7 +487,7 @@ function ZoneDayHeatmap({ data, kit }) {
             {data.days.map((day) => {
               const n = counts[`${zone}|${day}`] || 0;
               return (
-                <Tooltip key={day} title={`${zone} — ${dayjs(day).format("ddd D MMM")}: ${n} incident${n === 1 ? "" : "s"}`}>
+                <Tooltip key={day} title={t("analytics.zoneDayIncidents", { zone, day: dayjs(day).format("ddd D MMM"), count: n })}>
                   <Box
                     sx={{
                       height: 24,
@@ -501,18 +506,19 @@ function ZoneDayHeatmap({ data, kit }) {
 }
 
 function Hotspots({ data, kit }) {
+  const { t } = useTranslation();
   const rows = data.actions_by_camera;
   const cameras = [...new Set(rows.map((r) => r.camera_name))];
   const actions = [...new Set(rows.map((r) => r.action_taken))];
   return (
     <Grid container spacing={2}>
       <Grid size={12}>
-        <ChartCard title="Hotspot heatmap" subtitle="Incidents per zone per day (dismissed left out); cameras without a zone show by name">
+        <ChartCard title={t("analytics.hotspotHeatmap")} subtitle={t("analytics.incidentsPerZonePerDay")}>
           <ZoneDayHeatmap data={data} kit={kit} />
         </ChartCard>
       </Grid>
       <Grid size={12}>
-        <ChartCard title="Event type breakdown" subtitle="What was done about the incidents at each camera" height={300}>
+        <ChartCard title={t("analytics.eventTypeBreakdown")} subtitle={t("analytics.whatWasDoneAboutThe")} height={300}>
           {rows.length ? (
             <Bar
               data={{
@@ -537,40 +543,41 @@ function Hotspots({ data, kit }) {
 
 // ---------------------------------------------------------- model confidence
 function Confidence({ data, kit }) {
+  const { t } = useTranslation();
   const s = data.summary;
   if (!s.events) {
     return (
       <Card>
-        <EmptyState title="No alerts to audit in this window" description="Test alerts are left out of the audit." />
+        <EmptyState title={t("analytics.noAlertsToAuditIn")} description={t("analytics.testAlertsAreLeftOut")} />
       </Card>
     );
   }
   const facts = [
-    { label: "Average confidence", value: formatScore(s.avg_confidence) },
-    { label: "Range", value: `${formatScore(s.min_confidence, 0)} – ${formatScore(s.max_confidence, 0)}` },
+    { label: t("analytics.averageConfidence"), value: formatScore(s.avg_confidence) },
+    { label: t("analytics.range"), value: `${formatScore(s.min_confidence, 0)} – ${formatScore(s.max_confidence, 0)}` },
     {
-      label: `Below ${formatScore(s.low_confidence_cutoff, 0)}`,
+      label: t("analytics.belowV0", { v0: formatScore(s.low_confidence_cutoff, 0) }),
       value: `${formatNumber(s.low_confidence)} (${formatPct(s.low_confidence_pct)})`,
     },
-    { label: "Avg on confirmed / resolved", value: formatScore(s.avg_confidence_confirmed) },
-    { label: "Avg on dismissed", value: formatScore(s.avg_confidence_dismissed) },
-    { label: "False-positive rate", value: formatPct(s.false_positive_pct) },
+    { label: t("analytics.avgOnConfirmedResolved"), value: formatScore(s.avg_confidence_confirmed) },
+    { label: t("analytics.avgOnDismissed"), value: formatScore(s.avg_confidence_dismissed) },
+    { label: t("analytics.falsePositiveRate"), value: formatPct(s.false_positive_pct) },
   ];
   const observed = data.observations_by_camera;
   return (
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, lg: 8 }}>
         <ChartCard
-          title="Alert confidence"
-          subtitle={`Smoothed probability of ${formatNumber(s.events)} alerts. Dismissals clustering just over the threshold point to the threshold; confident ones to the scene.`}
+          title={t("analytics.alertConfidence")}
+          subtitle={t("analytics.smoothedProbabilityOfV0Alerts", { v0: formatNumber(s.events) })}
           height={260}
         >
           <Bar
             data={{
               labels: data.histogram.map((b) => `${Math.round(b.min * 100)}–${Math.round(b.max * 100)}%`),
               datasets: [
-                { label: "Alerts", data: data.histogram.map((b) => b.count - b.dismissed), backgroundColor: kit.p.primary.main, ...kit.bar },
-                { label: "Dismissed", data: data.histogram.map((b) => b.dismissed), backgroundColor: kit.p.grey[500], ...kit.bar },
+                { label: t("analytics.alerts"), data: data.histogram.map((b) => b.count - b.dismissed), backgroundColor: kit.p.primary.main, ...kit.bar },
+                { label: t("analytics.dismissed"), data: data.histogram.map((b) => b.dismissed), backgroundColor: kit.p.grey[500], ...kit.bar },
               ],
             }}
             options={kit.stacked}
@@ -581,7 +588,7 @@ function Confidence({ data, kit }) {
         <Card sx={{ height: "100%" }}>
           <CardContent>
             <Typography variant="subtitle2" sx={{ mb: 1.5 }}>
-              Summary
+              {t("analytics.summary")}
             </Typography>
             <Stack spacing={1.25}>
               {facts.map((fact) => (
@@ -595,7 +602,7 @@ function Confidence({ data, kit }) {
                 </Stack>
               ))}
               <Typography variant="caption" color="text.disabled">
-                Alert threshold {formatScore(s.threshold, 0)}.
+                {t("analytics.alertThresholdV0", { v0: formatScore(s.threshold, 0) })}
               </Typography>
             </Stack>
           </CardContent>
@@ -603,15 +610,15 @@ function Confidence({ data, kit }) {
       </Grid>
       <Grid size={{ xs: 12, lg: 6 }}>
         <ChartCard
-          title="Average probability per camera"
-          subtitle="Across every person sampled, not only alerts (InsightEye's model-accuracy chart)"
+          title={t("analytics.averageProbabilityPerCamera")}
+          subtitle={t("analytics.acrossEveryPersonSampledNot")}
           height={Math.max(180, observed.length * 32 + 48)}
         >
           {observed.length ? (
             <Bar
               data={{
                 labels: observed.map((r) => r.camera_name),
-                datasets: [{ label: "Average probability", data: observed.map((r) => r.avg_probability ?? 0), backgroundColor: kit.p.secondary.main, ...kit.bar }],
+                datasets: [{ label: t("analytics.averageProbability"), data: observed.map((r) => r.avg_probability ?? 0), backgroundColor: kit.p.secondary.main, ...kit.bar }],
               }}
               options={{
                 ...kit.horizontal,
@@ -620,24 +627,24 @@ function Confidence({ data, kit }) {
               }}
             />
           ) : (
-            <NoData>No probability samples in this window.</NoData>
+            <NoData>{t("analytics.noProbabilitySamplesInThis")}</NoData>
           )}
         </ChartCard>
       </Grid>
       <Grid size={{ xs: 12, lg: 6 }}>
         <Card sx={{ height: "100%" }}>
           <CardContent sx={{ pb: 0 }}>
-            <Typography variant="subtitle2">Per camera</Typography>
+            <Typography variant="subtitle2">{t("analytics.perCamera")}</Typography>
           </CardContent>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Camera</TableCell>
-                  <TableCell align="right">Alerts</TableCell>
-                  <TableCell align="right">Avg</TableCell>
-                  <TableCell align="right">Low</TableCell>
-                  <TableCell align="right">Dismissed</TableCell>
+                  <TableCell>{t("analytics.camera")}</TableCell>
+                  <TableCell align="right">{t("analytics.alerts")}</TableCell>
+                  <TableCell align="right">{t("analytics.avg")}</TableCell>
+                  <TableCell align="right">{t("analytics.low")}</TableCell>
+                  <TableCell align="right">{t("analytics.dismissed")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -663,37 +670,37 @@ function Confidence({ data, kit }) {
 
 // ---------------------------------------------------------------- high value
 function HighValue({ data, kit }) {
+  const { t } = useTranslation();
   const value = pivot(data.total_estimated_value, { categoryKey: "severity", valueKey: "total_value" });
   const items = pivot(data.items_stolen, { categoryKey: "zone", valueKey: "item_count" });
-  const t = data.totals;
+  const totals = data.totals;
   const severities = SEVERITIES.filter((s) => value.categories.includes(s));
   return (
     <Grid container spacing={2}>
       <Grid size={{ xs: 6, md: 3 }}>
-        <StatCard label="Recorded loss" value={formatMoney(t.recorded_loss)} hint={`${formatNumber(t.valued)} valued incident(s)`} icon={<PaidIcon />} color="warning" />
+        <StatCard label={t("analytics.recordedLoss")} value={formatMoney(totals.recorded_loss)} hint={t("analytics.v0ValuedIncidentS", { v0: formatNumber(totals.valued) })} icon={<PaidIcon />} color="warning" />
       </Grid>
       <Grid size={{ xs: 6, md: 3 }}>
-        <StatCard label="Largest single loss" value={formatMoney(t.largest_loss)} icon={<PaidIcon />} color="error" />
+        <StatCard label={t("analytics.largestSingleLoss")} value={formatMoney(totals.largest_loss)} icon={<PaidIcon />} color="error" />
       </Grid>
       <Grid size={{ xs: 12, md: 6 }}>
         <Card sx={{ height: "100%" }}>
           <CardContent>
-            <Typography variant="subtitle2">Not valued yet</Typography>
+            <Typography variant="subtitle2">{t("analytics.notValuedYet")}</Typography>
             <Typography variant="h4" sx={{ mt: 0.5 }}>
-              {formatNumber(t.unvalued)}
+              {formatNumber(totals.unvalued)}
             </Typography>
             <Typography variant="caption" color="text.secondary">
-              Confirmed or resolved incidents with no value recorded. They are counted as unknown, never guessed
-              from their severity.{" "}
-              {t.unvalued ? (
-                <RouterLink to="/events?status=confirmed,resolved">Open them</RouterLink>
+              {t("analytics.confirmedOrResolvedIncidentsWith")}{" "}
+              {totals.unvalued ? (
+                <RouterLink to="/events?status=confirmed,resolved">{t("analytics.openThem")}</RouterLink>
               ) : null}
             </Typography>
           </CardContent>
         </Card>
       </Grid>
       <Grid size={{ xs: 12, lg: 6 }}>
-        <ChartCard title="Estimated value stolen" subtitle="By day and severity" height={280}>
+        <ChartCard title={t("analytics.estimatedValueStolen")} subtitle={t("analytics.byDayAndSeverity")} height={280}>
           {value.dates.length ? (
             <Bar
               data={{
@@ -703,12 +710,12 @@ function HighValue({ data, kit }) {
               options={{ ...kit.stacked, scales: { ...kit.stacked.scales, y: { ...kit.stacked.scales.y, ticks: { ...kit.stacked.scales.y.ticks, callback: (v) => formatMoney(v) } } } }}
             />
           ) : (
-            <NoData>No incident in this window has a recorded value.</NoData>
+            <NoData>{t("analytics.noIncidentInThisWindow")}</NoData>
           )}
         </ChartCard>
       </Grid>
       <Grid size={{ xs: 12, lg: 6 }}>
-        <ChartCard title="Items stolen" subtitle="By day and zone" height={280}>
+        <ChartCard title={t("analytics.itemsStolen")} subtitle={t("analytics.byDayAndZone")} height={280}>
           {items.dates.length ? (
             <Bar
               data={{
@@ -723,7 +730,7 @@ function HighValue({ data, kit }) {
               options={kit.stacked}
             />
           ) : (
-            <NoData>No items recorded in this window.</NoData>
+            <NoData>{t("analytics.noItemsRecordedInThis")}</NoData>
           )}
         </ChartCard>
       </Grid>
@@ -731,7 +738,7 @@ function HighValue({ data, kit }) {
         <Card>
           <CardContent>
             <Typography variant="subtitle2" sx={{ mb: 1 }}>
-              Most-taken items
+              {t("analytics.mostTakenItems")}
             </Typography>
             {data.top_items.length ? (
               <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
@@ -745,7 +752,7 @@ function HighValue({ data, kit }) {
               </Stack>
             ) : (
               <Typography variant="body2" color="text.secondary">
-                Nothing recorded yet. Operators add items when they triage an incident.
+                {t("analytics.nothingRecordedYetOperatorsAdd")}
               </Typography>
             )}
           </CardContent>
@@ -757,36 +764,37 @@ function HighValue({ data, kit }) {
 
 // ------------------------------------------------------------------- traffic
 function Traffic({ data, kit }) {
+  const { t } = useTranslation();
   const zones = data.by_zone;
   const locations = data.by_location;
   const hourly = data.window.bucket === "hour";
   return (
     <Grid container spacing={2}>
       <Grid size={{ xs: 12, lg: 6 }}>
-        <ChartCard title="Shoppers by zone" subtitle="Person sessions, and how many the classifier flagged" height={Math.max(200, zones.length * 34 + 48)}>
+        <ChartCard title={t("analytics.shoppersByZone")} subtitle={t("analytics.personSessionsAndHowMany")} height={Math.max(200, zones.length * 34 + 48)}>
           {zones.length ? (
             <Bar
               data={{
                 labels: zones.map((r) => r.name),
                 datasets: [
-                  { label: "Sessions", data: zones.map((r) => r.sessions - r.flagged), backgroundColor: kit.p.info.main, ...kit.bar },
-                  { label: "Flagged", data: zones.map((r) => r.flagged), backgroundColor: kit.p.error.main, ...kit.bar },
+                  { label: t("analytics.sessions"), data: zones.map((r) => r.sessions - r.flagged), backgroundColor: kit.p.info.main, ...kit.bar },
+                  { label: t("analytics.flagged"), data: zones.map((r) => r.flagged), backgroundColor: kit.p.error.main, ...kit.bar },
                 ],
               }}
               options={{ ...kit.horizontal, scales: { x: { ...kit.horizontal.scales.x, stacked: true }, y: { ...kit.horizontal.scales.y, stacked: true } } }}
             />
           ) : (
-            <NoData>No person sessions recorded in this window.</NoData>
+            <NoData>{t("analytics.noPersonSessionsRecordedIn")}</NoData>
           )}
         </ChartCard>
       </Grid>
       <Grid size={{ xs: 12, lg: 6 }}>
-        <ChartCard title="Regional risk" subtitle="Incidents per 1,000 sessions, by location" height={Math.max(200, locations.length * 34 + 48)}>
+        <ChartCard title={t("analytics.regionalRisk")} subtitle={t("analytics.incidentsPer1000Sessions")} height={Math.max(200, locations.length * 34 + 48)}>
           {locations.length ? (
             <Bar
               data={{
                 labels: locations.map((r) => r.name),
-                datasets: [{ label: "Incidents per 1k sessions", data: locations.map((r) => r.incidents_per_1000_sessions ?? 0), backgroundColor: kit.p.warning.main, ...kit.bar }],
+                datasets: [{ label: t("analytics.incidentsPer1kSessions"), data: locations.map((r) => r.incidents_per_1000_sessions ?? 0), backgroundColor: kit.p.warning.main, ...kit.bar }],
               }}
               options={{ ...kit.horizontal, plugins: { ...kit.base.plugins, legend: { display: false } } }}
             />
@@ -796,13 +804,13 @@ function Traffic({ data, kit }) {
         </ChartCard>
       </Grid>
       <Grid size={12}>
-        <ChartCard title={hourly ? "Sessions per hour" : "Sessions per day"} height={240}>
+        <ChartCard title={hourly ? t("analytics.sessionsPerHour") : t("analytics.sessionsPerDay")} height={240}>
           <Line
             data={{
               labels: data.series.map((pt) => dayjs(pt.bucket_start).format(hourly ? "HH:mm" : "MMM D")),
               datasets: [
                 {
-                  label: "Sessions",
+                  label: t("analytics.sessions"),
                   data: data.series.map((pt) => pt.sessions),
                   borderColor: kit.p.info.main,
                   backgroundColor: alpha(kit.p.info.main, 0.14),
@@ -812,7 +820,7 @@ function Traffic({ data, kit }) {
                   pointRadius: 0,
                 },
                 {
-                  label: "Flagged",
+                  label: t("analytics.flagged"),
                   data: data.series.map((pt) => pt.flagged),
                   borderColor: kit.p.error.main,
                   backgroundColor: kit.p.error.main,
@@ -829,22 +837,21 @@ function Traffic({ data, kit }) {
       <Grid size={12}>
         <Card>
           <CardContent sx={{ pb: 0 }}>
-            <Typography variant="subtitle2">Top-risk areas</Typography>
+            <Typography variant="subtitle2">{t("analytics.topRiskAreas")}</Typography>
             <Typography variant="caption" color="text.secondary">
-              Locations with at least {data.min_sessions_for_rate} sessions, by incident rate. Fewer visits than that
-              make a rate meaningless.
+              {t("analytics.locationsWithAtLeastMin", { min_sessions_for_rate: data.min_sessions_for_rate })}
             </Typography>
           </CardContent>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Location</TableCell>
-                  <TableCell align="right">Sessions</TableCell>
-                  <TableCell align="right">Incidents</TableCell>
-                  <TableCell align="right">Per 1k sessions</TableCell>
-                  <TableCell align="right">Flagged</TableCell>
-                  <TableCell align="right">Avg dwell</TableCell>
+                  <TableCell>{t("analytics.location")}</TableCell>
+                  <TableCell align="right">{t("analytics.sessions")}</TableCell>
+                  <TableCell align="right">{t("analytics.incidents")}</TableCell>
+                  <TableCell align="right">{t("analytics.per1kSessions")}</TableCell>
+                  <TableCell align="right">{t("analytics.flagged")}</TableCell>
+                  <TableCell align="right">{t("analytics.avgDwell")}</TableCell>
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -863,7 +870,7 @@ function Traffic({ data, kit }) {
                   <TableRow>
                     <TableCell colSpan={6}>
                       <Typography variant="body2" color="text.secondary">
-                        No location has enough sessions in this window.
+                        {t("analytics.noLocationHasEnoughSessions")}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -879,13 +886,14 @@ function Traffic({ data, kit }) {
 
 // ---------------------------------------------------------------- operations
 function Operations({ params, kit }) {
+  const { t } = useTranslation();
   const actions = useAsync(({ signal }) => analytics.actions(params, { signal }), [JSON.stringify(params)]);
   const efficiency = useAsync(
     ({ signal }) => analytics.operationalEfficiency(params, { signal }),
     [JSON.stringify(params)]
   );
   if ((actions.loading && !actions.data) || (efficiency.loading && !efficiency.data)) {
-    return <Loading label="Aggregating…" height={300} />;
+    return <Loading label={t("analytics.aggregating")} height={300} />;
   }
   if (actions.error || efficiency.error) {
     return <ErrorState error={actions.error || efficiency.error} onRetry={() => { actions.refresh(); efficiency.refresh(); }} />;
@@ -899,24 +907,24 @@ function Operations({ params, kit }) {
   return (
     <Grid container spacing={2}>
       <Grid size={{ xs: 6, md: 3 }}>
-        <StatCard label="Median time to acknowledge" value={formatDuration(times.median_acknowledge_s)} hint={`90% within ${formatDuration(times.p90_acknowledge_s)}`} icon={<TimerIcon />} color="info" />
+        <StatCard label={t("analytics.medianTimeToAcknowledge")} value={formatDuration(times.median_acknowledge_s)} hint={t("analytics.90WithinV0", { v0: formatDuration(times.p90_acknowledge_s) })} icon={<TimerIcon />} color="info" />
       </Grid>
       <Grid size={{ xs: 6, md: 3 }}>
-        <StatCard label="Median time to close" value={formatDuration(times.median_resolve_s)} hint={`90% within ${formatDuration(times.p90_resolve_s)}`} icon={<TimerIcon />} color="success" />
+        <StatCard label={t("analytics.medianTimeToClose")} value={formatDuration(times.median_resolve_s)} hint={t("analytics.90WithinV0", { v0: formatDuration(times.p90_resolve_s) })} icon={<TimerIcon />} color="success" />
       </Grid>
       <Grid size={{ xs: 6, md: 3 }}>
-        <StatCard label="Open backlog" value={formatNumber(e.backlog_age.total)} hint={`${formatNumber(e.backlog_age.older)} older than a week`} icon={<LocalPoliceIcon />} color="error" />
+        <StatCard label={t("analytics.openBacklog")} value={formatNumber(e.backlog_age.total)} hint={t("analytics.v0OlderThanAWeek", { v0: formatNumber(e.backlog_age.older) })} icon={<LocalPoliceIcon />} color="error" />
       </Grid>
       <Grid size={{ xs: 6, md: 3 }}>
-        <StatCard label="Closed in window" value={formatNumber(times.closed)} hint={`${formatNumber(times.acknowledged)} acknowledged`} icon={<DirectionsWalkIcon />} color="secondary" />
+        <StatCard label={t("analytics.closedInWindow")} value={formatNumber(times.closed)} hint={t("analytics.v0Acknowledged", { v0: formatNumber(times.acknowledged) })} icon={<DirectionsWalkIcon />} color="secondary" />
       </Grid>
       <Grid size={{ xs: 12, lg: 5 }}>
-        <ChartCard title="Actions taken" subtitle="Pending = nobody has recorded one" height={240}>
+        <ChartCard title={t("analytics.actionsTaken")} subtitle={t("analytics.pendingNobodyHasRecordedOne")} height={240}>
           {a.summary.length ? (
             <Bar
               data={{
                 labels: a.summary.map((r) => ACTION_LABEL[r.action_taken] || titleCase(r.action_taken)),
-                datasets: [{ label: "Incidents", data: a.summary.map((r) => r.count), backgroundColor: a.summary.map((r) => kit.action[r.action_taken]), ...kit.bar }],
+                datasets: [{ label: t("analytics.incidents"), data: a.summary.map((r) => r.count), backgroundColor: a.summary.map((r) => kit.action[r.action_taken]), ...kit.bar }],
               }}
               options={{ ...kit.base, plugins: { ...kit.base.plugins, legend: { display: false } } }}
             />
@@ -926,7 +934,7 @@ function Operations({ params, kit }) {
         </ChartCard>
       </Grid>
       <Grid size={{ xs: 12, lg: 7 }}>
-        <ChartCard title="Actions by location" height={240}>
+        <ChartCard title={t("analytics.actionsByLocation")} height={240}>
           {byLocation.length ? (
             <Bar
               data={{
@@ -948,20 +956,20 @@ function Operations({ params, kit }) {
       <Grid size={12}>
         <Card>
           <CardContent sx={{ pb: 0 }}>
-            <Typography variant="subtitle2">Oldest open incidents</Typography>
+            <Typography variant="subtitle2">{t("analytics.oldestOpenIncidents")}</Typography>
             <Typography variant="caption" color="text.secondary">
-              Everything still detected or under review, whenever it was raised.
+              {t("analytics.everythingStillDetectedOrUnder")}
             </Typography>
           </CardContent>
           <TableContainer>
             <Table size="small">
               <TableHead>
                 <TableRow>
-                  <TableCell>Raised</TableCell>
-                  <TableCell>Camera</TableCell>
-                  <TableCell>Severity</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell align="right">Waiting</TableCell>
+                  <TableCell>{t("analytics.raised")}</TableCell>
+                  <TableCell>{t("analytics.camera")}</TableCell>
+                  <TableCell>{t("analytics.severity")}</TableCell>
+                  <TableCell>{t("analytics.status")}</TableCell>
+                  <TableCell align="right">{t("analytics.waiting")}</TableCell>
                   <TableCell />
                 </TableRow>
               </TableHead>
@@ -980,7 +988,7 @@ function Operations({ params, kit }) {
                       <TableCell align="right">{formatDuration(row.age_s)}</TableCell>
                       <TableCell align="right">
                         <Button size="small" component={RouterLink} to={`/events/${row.event_id}`}>
-                          Triage
+                          {t("analytics.triage")}
                         </Button>
                       </TableCell>
                     </TableRow>
@@ -989,7 +997,7 @@ function Operations({ params, kit }) {
                   <TableRow>
                     <TableCell colSpan={6}>
                       <Typography variant="body2" color="text.secondary">
-                        Nothing open. The queue is clear.
+                        {t("analytics.nothingOpenTheQueueIs")}
                       </Typography>
                     </TableCell>
                   </TableRow>
@@ -1005,12 +1013,13 @@ function Operations({ params, kit }) {
 
 // --------------------------------------------------------------------- page
 function Report({ tab, params, days, kit }) {
+  const { t } = useTranslation();
   const { data, error, loading, refresh } = useAsync(
     ({ signal }) => tab.report(params, { signal }),
     [tab.key, JSON.stringify(params)]
   );
-  if (error) return <ErrorState error={error} onRetry={refresh} title="Could not load this report" />;
-  if (!data) return <Loading label="Aggregating…" height={360} />;
+  if (error) return <ErrorState error={error} onRetry={refresh} title={t("analytics.couldNotLoadThisReport")} />;
+  if (!data) return <Loading label={t("analytics.aggregating")} height={360} />;
   const report = data.data;
   const views = {
     overview: <Overview data={report} days={days} kit={kit} />,
@@ -1025,6 +1034,7 @@ function Report({ tab, params, days, kit }) {
 }
 
 export default function Analytics() {
+  const { t } = useTranslation();
   const kit = useChartKit();
   const filters = useIncidentFilters({ resetKeys: [] });
   const [search, setSearch] = useSearchParams();
@@ -1044,16 +1054,16 @@ export default function Analytics() {
   return (
     <Box>
       <PageHeader
-        title="Analytics"
-        subtitle={`Loss, hotspots, footfall and how well the classifier and the team are doing. Times in ${TIMEZONE}.`}
+        title={t("analytics.analytics")}
+        subtitle={t("analytics.lossHotspotsFootfallAndHow", { TIMEZONE })}
         actions={
           <TextField
             select
             size="small"
-            label="Window"
+            label={t("analytics.window")}
             value={days}
             disabled={ranged}
-            helperText={ranged ? "Using the dates below" : undefined}
+            helperText={ranged ? t("analytics.usingTheDatesBelow") : undefined}
             onChange={(event) => set("days", event.target.value)}
             sx={{ minWidth: 170 }}
           >

@@ -39,6 +39,8 @@ import {
   shortId,
   titleCase,
 } from "../utils/format";
+import { useTranslation } from "react-i18next";
+import i18n from "i18next";
 
 function DetailRow({ label, children }) {
   return (
@@ -52,11 +54,11 @@ function DetailRow({ label, children }) {
 }
 
 const STATUS_HINT = {
-  detected: "Raised by the classifier; nobody has looked yet.",
-  under_review: "You are watching the footage.",
-  confirmed: "It was shoplifting. Record what was taken below.",
-  dismissed: "A false positive. It is left out of the loss figures.",
-  resolved: "Dealt with and closed.",
+  get detected() { return i18n.t("eventDetail.raisedByTheClassifierNobody"); },
+  get under_review() { return i18n.t("eventDetail.youAreWatchingTheFootage"); },
+  get confirmed() { return i18n.t("eventDetail.itWasShopliftingRecordWhat"); },
+  get dismissed() { return i18n.t("eventDetail.aFalsePositiveItIs"); },
+  get resolved() { return i18n.t("eventDetail.dealtWithAndClosed"); },
 };
 
 const fromEvent = (event) => ({
@@ -72,6 +74,7 @@ const fromEvent = (event) => ({
  * Loss analytics read only what is recorded here, never a guess.
  */
 function TriageForm({ event, onSaved }) {
+  const { t } = useTranslation();
   const toast = useToast();
   const [values, setValues] = useState(() => fromEvent(event));
   const [saving, setSaving] = useState(false);
@@ -83,7 +86,7 @@ function TriageForm({ event, onSaved }) {
   const dirty = JSON.stringify(values) !== JSON.stringify(initial);
   const valueError =
     values.estimated_value !== "" && (Number.isNaN(Number(values.estimated_value)) || Number(values.estimated_value) < 0)
-      ? "A positive amount"
+      ? t("eventDetail.positiveAmount")
       : null;
 
   const set = (key) => (value) => setValues((current) => ({ ...current, [key]: value }));
@@ -103,7 +106,7 @@ function TriageForm({ event, onSaved }) {
         changes.estimated_value = values.estimated_value === "" ? null : Number(values.estimated_value);
       if (values.description !== initial.description) changes.description = values.description || null;
       const { data } = await eventApi.update(event.event_id, changes);
-      toast.success("Incident updated.");
+      toast.success(t("eventDetail.incidentUpdated"));
       onSaved(data);
     } catch (err) {
       setError(errorMessage(err));
@@ -116,13 +119,13 @@ function TriageForm({ event, onSaved }) {
     <Card>
       <CardContent>
         <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-          Triage
+          {t("eventDetail.triage")}
         </Typography>
         <Divider sx={{ mb: 2 }} />
         <Stack spacing={2}>
           <TextField
             select
-            label="Status"
+            label={t("eventDetail.status")}
             value={values.status}
             onChange={(e) => set("status")(e.target.value)}
             helperText={STATUS_HINT[values.status]}
@@ -136,13 +139,13 @@ function TriageForm({ event, onSaved }) {
           </TextField>
           <TextField
             select
-            label="Action taken"
+            label={t("eventDetail.actionTaken")}
             value={values.action_taken}
             onChange={(e) => set("action_taken")(e.target.value)}
             fullWidth
           >
             <MenuItem value="">
-              <em>Not recorded</em>
+              <em>{t("eventDetail.notRecorded")}</em>
             </MenuItem>
             {ACTIONS.map((action) => (
               <MenuItem key={action} value={action}>
@@ -164,19 +167,19 @@ function TriageForm({ event, onSaved }) {
             renderInput={(params) => (
               <TextField
                 {...params}
-                label="Items stolen"
-                placeholder="Type an item and press Enter"
-                helperText="Feeds the items-stolen and top-items charts."
+                label={t("eventDetail.itemsStolen")}
+                placeholder={t("eventDetail.typeAnItemAndPress")}
+                helperText={t("eventDetail.feedsTheItemsStolenAnd")}
               />
             )}
           />
           <TextField
-            label="Estimated value"
+            label={t("eventDetail.estimatedValue")}
             type="number"
             value={values.estimated_value}
             onChange={(e) => set("estimated_value")(e.target.value)}
             error={Boolean(valueError)}
-            helperText={valueError || "What the items were worth, in total. Leave blank if unknown."}
+            helperText={valueError || t("eventDetail.whatTheItemsWereWorth")}
             fullWidth
             slotProps={{
               input: { endAdornment: <InputAdornment position="end">{CURRENCY}</InputAdornment> },
@@ -184,7 +187,7 @@ function TriageForm({ event, onSaved }) {
             }}
           />
           <TextField
-            label="Notes"
+            label={t("eventDetail.notes")}
             value={values.description}
             onChange={(e) => set("description")(e.target.value)}
             multiline
@@ -200,10 +203,10 @@ function TriageForm({ event, onSaved }) {
               disabled={!dirty || saving || Boolean(valueError)}
               onClick={save}
             >
-              {saving ? "Saving…" : "Save"}
+              {saving ? t("eventDetail.saving") : t("eventDetail.save")}
             </Button>
             <Button color="inherit" disabled={!dirty || saving} onClick={() => setValues(initial)}>
-              Discard changes
+              {t("eventDetail.discardChanges")}
             </Button>
           </Stack>
         </Stack>
@@ -213,6 +216,7 @@ function TriageForm({ event, onSaved }) {
 }
 
 export default function EventDetail() {
+  const { t } = useTranslation();
   const { eventId } = useParams();
   const { hasRole } = useAuth();
   const canTriage = hasRole("operator");
@@ -227,18 +231,18 @@ export default function EventDetail() {
   useEffect(() => setSaved(null), [data]);
   const event = saved || data;
 
-  if (loading && !data) return <Loading label="Loading incident…" />;
+  if (loading && !data) return <Loading label={t("eventDetail.loadingIncident")} />;
   if (error) return <ErrorState error={error} onRetry={refresh} />;
   if (!event) return null;
 
   return (
     <Box>
       <Button component={RouterLink} to="/events" startIcon={<ArrowBackIcon />} sx={{ mb: 2 }}>
-        All incidents
+        {t("eventDetail.allIncidents")}
       </Button>
 
       <PageHeader
-        title={`${titleCase(event.severity)} incident · ${event.camera_name}`}
+        title={t("eventDetail.v0IncidentCameraName", { v0: titleCase(event.severity), camera_name: event.camera_name })}
         subtitle={`${describePlace(event)} · ${fromNow(event.detected_at)}`}
         actions={
           <Stack direction="row" spacing={1} alignItems="center">
@@ -254,10 +258,10 @@ export default function EventDetail() {
           <Card sx={{ mb: 2 }}>
             <Box sx={{ px: 2.5, py: 1.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                Video
+                {t("eventDetail.video")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Annotated footage from before the alert until after it, at real speed.
+                {t("eventDetail.annotatedFootageFromBeforeThe")}
               </Typography>
             </Box>
             <Divider />
@@ -272,8 +276,7 @@ export default function EventDetail() {
               />
             ) : (
               <Typography variant="body2" color="text.secondary" sx={{ px: 2.5, py: 3 }}>
-                No clip recorded for this incident. A clip is saved a few seconds after the alert
-                fires; older ones are removed by retention.
+                {t("eventDetail.noClipRecordedForThis")}
               </Typography>
             )}
           </Card>
@@ -281,19 +284,19 @@ export default function EventDetail() {
           <Card>
             <Box sx={{ px: 2.5, py: 1.5 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 700 }}>
-                Alert frame
+                {t("eventDetail.alertFrame")}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                The frame captured when the incident was raised, with the person boxed.
+                {t("eventDetail.theFrameCapturedWhenThe")}
               </Typography>
             </Box>
             <Divider />
             <ItemImage
               src={event.has_frame ? eventApi.frameUrl(eventId) : null}
-              alt={`Annotated frame for the incident on ${event.camera_name}`}
+              alt={t("eventDetail.annotatedFrameForTheIncident", { camera_name: event.camera_name })}
               height={440}
               fit="contain"
-              fallbackLabel="No frame stored for this incident"
+              fallbackLabel={t("eventDetail.noFrameStoredForThis")}
             />
           </Card>
         </Grid>
@@ -302,41 +305,40 @@ export default function EventDetail() {
           {canTriage ? (
             <TriageForm event={event} onSaved={setSaved} />
           ) : (
-            <Alert severity="info">Viewers can read incidents; an operator triages them.</Alert>
+            <Alert severity="info">{t("eventDetail.viewersCanReadIncidentsAn")}</Alert>
           )}
 
           <Card sx={{ mt: 2 }}>
             <CardContent>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-                Detection
+                {t("eventDetail.detection")}
               </Typography>
               <Divider />
-              <DetailRow label="Probability">
+              <DetailRow label={t("eventDetail.probability")}>
                 <Typography variant="body2">
-                  {formatScore(event.confidence)} when raised · peak {formatScore(event.peak_confidence)}
+                  {t("eventDetail.v0WhenRaisedPeakV1", { v0: formatScore(event.confidence), v1: formatScore(event.peak_confidence) })}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Method">
+              <DetailRow label={t("eventDetail.method")}>
                 <Typography variant="body2">
-                  {event.detection_method === "test" ? "Test alert" : "Pose classifier"}
+                  {event.detection_method === "test" ? t("eventDetail.testAlert") : t("eventDetail.poseClassifier")}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Person">
+              <DetailRow label={t("eventDetail.person")}>
                 <Typography variant="body2" color="text.secondary">
                   {event.person_track_id !== null && event.person_track_id !== undefined
-                    ? `Track #${event.person_track_id} · ${describeBox(event.bbox)}`
-                    : "Not tied to one person"}
+                    ? t("eventDetail.trackPersonTrackIdV1", { person_track_id: event.person_track_id, v1: describeBox(event.bbox) })
+                    : t("eventDetail.notTiedToOnePerson")}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Watched for">
+              <DetailRow label={t("eventDetail.watchedFor")}>
                 <Typography variant="body2" color="text.secondary">
-                  {event.started_at
+                  {t("eventDetail.v0BeforeTheAlert", { v0: event.started_at
                     ? formatDuration((new Date(event.detected_at) - new Date(event.started_at)) / 1000)
-                    : "—"}{" "}
-                  before the alert
+                    : "—" })}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Camera">
+              <DetailRow label={t("eventDetail.camera")}>
                 <Button
                   size="small"
                   component={RouterLink}
@@ -346,7 +348,7 @@ export default function EventDetail() {
                   {event.camera_name}
                 </Button>
               </DetailRow>
-              <DetailRow label="Place">
+              <DetailRow label={t("eventDetail.place")}>
                 <Typography variant="body2">
                   {describePlace(event, ["location", "area", "building", "floor_level", "zone"])}
                 </Typography>
@@ -357,40 +359,40 @@ export default function EventDetail() {
           <Card sx={{ mt: 2 }}>
             <CardContent>
               <Typography variant="subtitle1" sx={{ fontWeight: 700, mb: 1 }}>
-                Timeline
+                {t("eventDetail.timeline")}
               </Typography>
               <Divider />
-              <DetailRow label="First seen">
+              <DetailRow label={t("eventDetail.firstSeen")}>
                 <Typography variant="body2" color="text.secondary">
                   {formatDateTime(event.started_at)}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Alert raised">
+              <DetailRow label={t("eventDetail.alertRaised")}>
                 <Typography variant="body2">{formatDateTime(event.detected_at)}</Typography>
               </DetailRow>
-              <DetailRow label="Acknowledged">
+              <DetailRow label={t("eventDetail.acknowledged")}>
                 <Typography variant="body2" color="text.secondary">
                   {formatDateTime(event.acknowledged_at)}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Closed">
+              <DetailRow label={t("eventDetail.closed")}>
                 <Typography variant="body2" color="text.secondary">
                   {event.resolved_at
                     ? `${formatDateTime(event.resolved_at)}${
                         event.resolved_by_username ? ` by ${event.resolved_by_username}` : ""
                       }`
-                    : "Still open"}
+                    : t("eventDetail.stillOpen")}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Recorded loss">
+              <DetailRow label={t("eventDetail.recordedLoss")}>
                 <Typography variant="body2">
-                  {event.items_stolen?.length ? event.items_stolen.join(", ") : "No items recorded"}
+                  {event.items_stolen?.length ? event.items_stolen.join(", ") : t("eventDetail.noItemsRecorded")}
                   {event.estimated_value !== null ? ` · ${formatMoney(event.estimated_value)}` : ""}
                 </Typography>
               </DetailRow>
-              <DetailRow label="Identity">
+              <DetailRow label={t("eventDetail.identity")}>
                 <Typography variant="caption" color="text.disabled">
-                  {event.track_key} · incident {shortId(event.event_id)}
+                  {t("eventDetail.trackKeyIncidentV1", { track_key: event.track_key, v1: shortId(event.event_id) })}
                 </Typography>
               </DetailRow>
             </CardContent>
