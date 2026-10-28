@@ -1,0 +1,26 @@
+{
+  "name": "@insighteye/ui",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Shared theme, i18n (EN/AR), app shell and platform components for the InsightEye product consoles.",
+  "type": "module",
+  "main": "src/index.js",
+  "sideEffects": [
+    "*.css"
+  ],
+  "peerDependencies": {
+    "@emotion/cache": "^11.14.0",
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/icons-material": "^6.4.1",
+    "@mui/material": "^6.4.1",
+    "dayjs": "^1.11.13",
+    "i18next": "^26.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "react-i18next": "^17.0.0",
+    "react-router-dom": "^6.28.0",
+    "stylis": "^4.3.0",
+    "stylis-plugin-rtl": "^2.1.1"
+  }
+}
