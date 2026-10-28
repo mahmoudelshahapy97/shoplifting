@@ -192,10 +192,25 @@ async def _purge_disk_clips(report: PurgeReport) -> None:
         logger.exception("Clip retention pass over the clip directory failed")
 
 
+async def purge_feeds() -> None:
+    """Old notifications and audit entries: both tables only grow otherwise."""
+    from app.services.audit_service import audit_service
+    from app.services.inbox_service import inbox_service
+
+    try:
+        if config.notification_retention_days > 0:
+            await inbox_service.purge_older_than(config.notification_retention_days)
+        if config.audit_retention_days > 0:
+            await audit_service.purge_older_than(config.audit_retention_days)
+    except Exception:
+        logger.exception("Notification / audit retention pass failed")
+
+
 async def _loop() -> None:
     interval = max(60.0, config.retention_interval_s)
     while True:
         await purge_old_clips()
+        await purge_feeds()
         await asyncio.sleep(interval)
 
 

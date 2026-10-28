@@ -41,6 +41,8 @@ class AuthUser(BaseModel):
     full_name: Optional[str] = None
     role: str
     is_active: bool
+    # Whether new alerts are emailed to this account (PATCH /auth/me).
+    notify_email: bool = True
     last_login: Optional[datetime] = None
     created_at: datetime
 
@@ -50,3 +52,9 @@ class TokenResponse(BaseModel):
     refresh_token: str
     token_type: str = "bearer"
     user: AuthUser
+
+
+class ProfileUpdate(BaseModel):
+    """Self-service settings: whether new alerts are emailed to me."""
+
+    notify_email: bool

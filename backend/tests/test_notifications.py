@@ -159,7 +159,7 @@ async def test_text_names_the_camera_and_a_test_alert(world, api):
     await notification_service.notify_incident(await world["incident"]("low", "test"), world["camera_name"])
 
     body = (await api.get("/notifications", headers=_bearer(world["operator"]))).json()
-    test, real = body["notifications"][:2]
+    test, real = body["items"][:2]
     assert test["title"] == f"Test alert: {world['camera_name']}"
     assert test["message"] == "Low severity, 87% confidence."
     assert real["title"] == f"Shoplifting suspected: {world['camera_name']}"
@@ -179,7 +179,7 @@ async def test_the_hub_pushes_to_the_recipients_open_consoles(world):
 
         message = operator_tab.get_nowait()
         assert message["type"] == "notification"
-        assert message["notification"]["event_id"] == str(event["event_id"])
+        assert message["notification"]["ref_id"] == str(event["event_id"])
         # JSON-ready as it is: the socket sends it without another pass.
         json.dumps(message)
         assert outsider_tab.empty()
@@ -189,7 +189,7 @@ async def test_the_hub_pushes_to_the_recipients_open_consoles(world):
 
 
 async def test_a_socket_that_falls_behind_is_asked_to_resync(world, monkeypatch):
-    monkeypatch.setattr("app.services.notification_service.QUEUE_SIZE", 2)
+    monkeypatch.setattr("app.services.inbox_service._QUEUE_SIZE", 2)
     hub = notification_service.hub
     tab = hub.subscribe(world["operator"]["user_id"])
     try:
@@ -209,37 +209,37 @@ async def test_reading_one_and_then_all(world, api):
 
     body = (await api.get("/notifications", headers=op)).json()
     assert body["unread"] == 3
-    first = body["notifications"][0]["notification_id"]
+    first = body["items"][0]["notification_id"]
 
     other_tab = notification_service.hub.subscribe(world["operator"]["user_id"])
     try:
         marked = (await api.post("/notifications/read", json={"notification_ids": [first]}, headers=op)).json()
-        assert marked["data"] == {"marked": 1, "unread": 2}
-        assert other_tab.get_nowait() == {"type": "read", "notification_ids": [first], "unread": 2}
+        assert marked == {"marked": 1, "unread": 2}
+        assert other_tab.get_nowait() == {"type": "read", "notification_ids": [first], "all": False, "unread": 2}
     finally:
         notification_service.hub.unsubscribe(world["operator"]["user_id"], other_tab)
 
     unread = (await api.get("/notifications", params={"unread_only": True}, headers=op)).json()
-    assert first not in [n["notification_id"] for n in unread["notifications"]]
+    assert first not in [n["notification_id"] for n in unread["items"]]
 
     everything = (await api.post("/notifications/read", json={}, headers=op)).json()
-    assert everything["data"] == {"marked": 2, "unread": 0}
+    assert everything == {"marked": 2, "unread": 0}
     count = (await api.get("/notifications/unread-count", headers=op)).json()
-    assert count["data"]["unread"] == 0
+    assert count["unread"] == 0
 
 
 async def test_one_account_cannot_mark_anothers(world, api):
     event = await world["incident"]()
     await notification_service.notify_incident(event, world["camera_name"])
     admins = (await api.get("/notifications", headers=_bearer(world["admin"]))).json()
-    theirs = next(n for n in admins["notifications"] if n["event_id"] == str(event["event_id"]))
+    theirs = next(n for n in admins["items"] if n["ref_id"] == str(event["event_id"]))
 
     response = await api.post(
         "/notifications/read",
         json={"notification_ids": [theirs["notification_id"]]},
         headers=_bearer(world["operator"]),
     )
-    assert response.json()["data"]["marked"] == 0
+    assert response.json()["marked"] == 0
     row = await db_manager.execute_query(
         "SELECT read_at FROM notification WHERE notification_id = $1",
         (uuid.UUID(theirs["notification_id"]),),
@@ -252,11 +252,11 @@ async def test_paging_back_with_before(world, api):
     op = _bearer(world["operator"])
     for _ in range(3):
         await notification_service.notify_incident(await world["incident"](), world["camera_name"])
-    page = (await api.get("/notifications", params={"limit": 2}, headers=op)).json()["notifications"]
+    page = (await api.get("/notifications", params={"limit": 2}, headers=op)).json()["items"]
     assert len(page) == 2
     rest = (
         await api.get("/notifications", params={"limit": 2, "before": page[-1]["created_at"]}, headers=op)
-    ).json()["notifications"]
+    ).json()["items"]
     assert len(rest) == 1
     assert rest[0]["notification_id"] not in [n["notification_id"] for n in page]
 
@@ -268,7 +268,7 @@ async def test_leaving_the_workspace_takes_its_alerts_out_of_the_bell(world, api
 
     await workspace_service.remove_member(world["a"], world["operator"]["user_id"])
     body = (await api.get("/notifications", headers=op)).json()
-    assert body == {"notifications": [], "unread": 0}
+    assert body == {"items": [], "total": 0, "unread": 0}
 
 
 async def test_deleting_the_incident_deletes_its_notifications(world):
@@ -330,14 +330,14 @@ async def test_the_socket_says_hello_then_pushes_new_incidents(world, socket_url
         await notification_service.notify_incident(event, world["camera_name"])
         pushed = await _receive(ws)
         assert pushed["type"] == "notification"
-        assert pushed["notification"]["event_id"] == str(event["event_id"])
+        assert pushed["notification"]["ref_id"] == str(event["event_id"])
         assert pushed["notification"]["severity"] == "critical"
     # Closing the socket unsubscribes it.
     for _ in range(50):
-        if notification_service.hub.connections() == 0:
+        if notification_service.hub.socket_count == 0:
             break
         await asyncio.sleep(0.02)
-    assert notification_service.hub.connections() == 0
+    assert notification_service.hub.socket_count == 0
 
 
 @pytest.mark.parametrize(

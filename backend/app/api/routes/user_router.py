@@ -10,6 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from app.api.deps import require_role
 from app.core.security import validate_password_strength
 from app.schemas.user_schemas import AdminPasswordReset, UserCreate, UserResponse, UserUpdate
+from app.services.auth_service import auth_service
 from app.services.user_service import user_service
 from app.services.workspace_service import DEFAULT_WORKSPACE_ID, workspace_service
 
@@ -140,6 +141,9 @@ async def reset_password(user_id: UUID, payload: AdminPasswordReset) -> Dict[str
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=message)
 
         await user_service.set_password(user_id, payload.new_password)
+        # What the message promises: no refresh token issued before the reset
+        # keeps working (set_password only retired the access tokens).
+        await auth_service.logout_all(user_id)
         return {"success": True, "message": "Password reset. All of the user's sessions were signed out."}
     except HTTPException:
         raise

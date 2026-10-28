@@ -4,6 +4,7 @@
 from typing import List, Literal
 
 from dotenv import load_dotenv
+from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 load_dotenv()
@@ -89,15 +90,61 @@ class Settings(BaseSettings):
     smtp_ssl: bool = False       # implicit TLS instead (465)
     smtp_timeout_seconds: float = 20.0
 
+    @model_validator(mode="after")
+    def _refuse_insecure_production(self) -> "Settings":
+        """In production, refuse to start with the shipped admin password or a
+        session cookie that would travel over plain HTTP."""
+        if self.environment == "production":
+            problems = []
+            if self.bootstrap_admin_password == "ChangeMe!123":
+                problems.append("BOOTSTRAP_ADMIN_PASSWORD is still the default")
+            if not self.auth_cookie_secure:
+                problems.append("AUTH_COOKIE_SECURE must be true behind HTTPS")
+            if len(self.secret_key) < 32:
+                problems.append("SECRET_KEY must be at least 32 characters")
+            if problems:
+                raise ValueError("Insecure production settings: " + "; ".join(problems))
+        return self
+
     @property
     def password_reset_enabled(self) -> bool:
         return bool(self.smtp_host)
 
     # =========================================================================
+    # SIGN-IN PROTECTION (app/core/ratelimit.py)
+    # =========================================================================
+    # Failed sign-ins allowed per login name + address within the window,
+    # then 429 until the oldest one ages out. 0 turns the limit off.
+    login_max_failures: int = 5
+    login_failure_window_s: int = 300
+    # Password-reset mails one address may ask for per window.
+    forgot_password_max_per_ip: int = 5
+    forgot_password_window_s: int = 900
+
+    # =========================================================================
+    # IN-APP NOTIFICATIONS AND AUDIT (inbox_service.py, audit_service.py)
+    # =========================================================================
+    # notification_ws_ping_s and notification_retention_days: see NOTIFICATIONS.
+    audit_retention_days: int = 365
+    # A running camera that has not delivered frames for this long raises a
+    # "camera offline" notification, and one "back online" when it recovers.
+    camera_offline_after_s: int = 60
+    camera_health_interval_s: float = 15.0
+
+    # =========================================================================
+    # CONNECTION TESTS (app/services/rtsp_probe.py)
+    # =========================================================================
+    probe_timeout_seconds: float = 8.0
+    probe_max_concurrency: int = 4
+
+    # =========================================================================
     # LOGGING
     # =========================================================================
     log_level: str = "INFO"
-    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+    log_format: str = "%(asctime)s - %(name)s - %(levelname)s - [%(request_id)s] %(message)s"
+    # One JSON object per line (time, level, logger, message, request_id) for
+    # log shippers; LOG_FORMAT is ignored then.
+    log_json: bool = False
     log_file_path: str = "logs/shoplifting.log"
 
     # =========================================================================

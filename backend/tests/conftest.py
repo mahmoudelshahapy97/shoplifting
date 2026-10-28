@@ -16,6 +16,16 @@ def build_app() -> FastAPI:
     return app
 
 
+@pytest.fixture(autouse=True)
+def _fresh_rate_limits():
+    """Every test client looks like one address; the sign-in and reset limits
+    must not carry over from one test to the next."""
+    from app.api.routes import auth_router
+
+    auth_router.login_failures._hits.clear()
+    auth_router.reset_requests._hits.clear()
+
+
 @pytest.fixture
 async def api():
     transport = httpx.ASGITransport(app=build_app())

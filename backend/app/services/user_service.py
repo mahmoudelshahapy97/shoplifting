@@ -11,6 +11,9 @@ from app.core.security import hash_password, verify_password
 
 logger = logging.getLogger(__name__)
 
+# A real bcrypt hash of a random string, for timing-equal failed logins.
+_DUMMY_HASH = hash_password("timing-equaliser-not-a-password")
+
 
 class UserService:
     def __init__(self) -> None:
@@ -160,6 +163,13 @@ class UserService:
             "DELETE FROM app_user WHERE user_id = $1", (user_id,), return_rowcount=True
         )
 
+    async def set_notify_email(self, user_id: UUID, enabled: bool) -> Optional[Dict[str, Any]]:
+        """The account's own switch for alert emails."""
+        await self.db_manager.execute_query(
+            "UPDATE app_user SET notify_email = $2, updated_at = NOW() WHERE user_id = $1", (user_id, enabled)
+        )
+        return await self.get_by_id(user_id)
+
     async def verify_credentials(self, username: str, password: str) -> Optional[Dict[str, Any]]:
         """Returns the user row on success, None on any failure (unknown
         username or email, wrong password, deactivated account) -- the caller
@@ -172,6 +182,9 @@ class UserService:
         if not user and "@" in username:
             user = await self.find_by_email(username)
         if not user or not user["is_active"]:
+            # Hash anyway, so an unknown login takes as long as a wrong
+            # password and response times do not list the accounts.
+            verify_password(password, _DUMMY_HASH)
             return None
         if not verify_password(password, user["password_hash"]):
             return None

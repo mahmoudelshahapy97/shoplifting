@@ -26,6 +26,14 @@ os.environ.setdefault(
 
 import cv2  # noqa: E402  - must follow the env var above
 
+# A grab() that takes longer than this waited on the network for a frame that
+# had not arrived yet: we are at the live edge, and skipping on would only
+# block. Decoding-free grabs of buffered frames take about a millisecond.
+LIVE_EDGE_GRAB_S = 0.015
+# Reported frame rates above this are container nonsense (mediamtx re-muxing
+# MPEG-4 reports 99 fps for a 24.75 fps stream) until measured otherwise.
+MAX_TRUSTED_REPORTED_FPS = 60.0
+
 
 class RTSPReader:
     """One video source. Reopens itself when the stream drops."""
@@ -37,6 +45,9 @@ class RTSPReader:
         self.consecutive_failures = 0
         self.frames_read = 0
         self._last_read_at: Optional[float] = None
+        # The rate frames actually arrive at, from their stream timestamps.
+        self._measured_fps: Optional[float] = None
+        self._last_pos_ms: Optional[float] = None
 
     # ------------------------------------------------------------------ state
     @property
@@ -73,6 +84,7 @@ class RTSPReader:
 
     def release(self) -> None:
         self._last_read_at = None
+        self._last_pos_ms = None
         if self._capture is not None:
             try:
                 self._capture.release()
@@ -90,10 +102,29 @@ class RTSPReader:
 
     @property
     def source_fps(self) -> float:
+        """Frames per second the source delivers: measured from the frames'
+        own timestamps once two reads have been seen, else the container's
+        claim when it is plausible, else 0 (unknown: skip only frame_skip)."""
         if not self.is_open:
             return 0.0
+        if self._measured_fps:
+            return self._measured_fps
         fps = self._capture.get(cv2.CAP_PROP_FPS) or 0.0
-        return fps if 0 < fps < 240 else 0.0
+        return fps if 0 < fps <= MAX_TRUSTED_REPORTED_FPS else 0.0
+
+    def _observe_rate(self, consumed: int) -> None:
+        """Update the measured rate from CAP_PROP_POS_MSEC: `consumed` frames
+        (grabbed + decoded) covered this much stream time since the last read."""
+        try:
+            pos = float(self._capture.get(cv2.CAP_PROP_POS_MSEC) or 0.0)
+        except Exception:
+            return
+        last, self._last_pos_ms = self._last_pos_ms, pos
+        if last is None or pos <= last or consumed <= 0:
+            return
+        instant = consumed * 1000.0 / (pos - last)
+        if 0.5 <= instant <= 240:
+            self._measured_fps = instant if self._measured_fps is None else 0.8 * self._measured_fps + 0.2 * instant
 
     # ------------------------------------------------------------------- read
     def read(self) -> Tuple[bool, Optional[np.ndarray]]:
@@ -107,9 +138,14 @@ class RTSPReader:
             return False, None
 
         try:
+            grabbed = 0
             for _ in range(self._frames_to_skip()):
+                started = time.monotonic()
                 if not self._capture.grab():
                     break
+                grabbed += 1
+                if time.monotonic() - started > LIVE_EDGE_GRAB_S:
+                    break  # caught up with the live edge
 
             ok, frame = self._capture.read()
             self._last_read_at = time.monotonic()
@@ -119,6 +155,7 @@ class RTSPReader:
 
             self.consecutive_failures = 0
             self.frames_read += 1
+            self._observe_rate(grabbed + 1)
             return True, frame
         except Exception as e:
             self.consecutive_failures += 1
@@ -134,6 +171,10 @@ class RTSPReader:
         drops packets, and the broken stream forces a reconnect. Keying the skip
         to elapsed time keeps us at the live edge; the extra frame drains any
         backlog left by a slow cycle.
+
+        The rate is the measured one (source_fps), never a container's
+        inflated claim on its own, and read() stops skipping as soon as a grab
+        has to wait for the network, so an overestimate cannot block the loop.
         """
         skip = self.frame_skip - 1
         fps = self.source_fps

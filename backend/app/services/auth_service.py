@@ -29,10 +29,10 @@ class AuthService:
         expires_at = datetime.now(timezone.utc) + timedelta(days=config.refresh_token_expire_days)
         await self.db_manager.execute_query(
             """
-            INSERT INTO refresh_session (user_id, jti, expires_at, user_agent, ip_address)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO refresh_session (user_id, jti, expires_at, user_agent, ip_address, token_version)
+            VALUES ($1, $2, $3, $4, $5, $6)
             """,
-            (user["user_id"], jti, expires_at, user_agent, ip_address),
+            (user["user_id"], jti, expires_at, user_agent, ip_address, user["token_version"]),
         )
         return access_token, refresh_token
 
@@ -80,6 +80,12 @@ class AuthService:
 
         user = await user_service.get_by_id(user_id)
         if not user or not user["is_active"]:
+            return None
+        # Issued before a password change, a reset or "log out everywhere":
+        # whoever holds it no longer gets new access tokens from it, even if
+        # nothing revoked the row itself.
+        if session.get("token_version") is not None and session["token_version"] != user["token_version"]:
+            await self._revoke_session(jti)
             return None
 
         await self._revoke_session(jti)

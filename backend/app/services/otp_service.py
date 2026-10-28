@@ -74,16 +74,21 @@ class OtpService:
     async def consume(self, user_id: UUID, code: str) -> bool:
         """True once for the right, unexpired code; the code is then gone.
 
-        A wrong guess counts against the code, and the last allowed one deletes it.
+        Every guess spends an attempt *before* it is checked, in one UPDATE, so
+        a burst of parallel guesses cannot all read the same count and get
+        more than OTP_MAX_ATTEMPTS tries between them. The last allowed one
+        deletes the code.
         """
         row = await self.db_manager.execute_query(
-            "SELECT otp_hash, attempts, expires_at > NOW() AS live FROM password_otp WHERE user_id = $1",
-            (user_id,),
+            """
+            UPDATE password_otp SET attempts = attempts + 1
+            WHERE user_id = $1 AND expires_at > NOW() AND attempts < $2
+            RETURNING otp_hash, attempts
+            """,
+            (user_id, config.otp_max_attempts),
             fetch_one=True,
         )
         if not row:
-            return False
-        if not row["live"] or row["attempts"] >= config.otp_max_attempts:
             await self.discard(user_id)
             return False
         if hmac.compare_digest(row["otp_hash"], _hash(user_id, code.strip())):
@@ -94,12 +99,7 @@ class OtpService:
                 fetch_one=True,
             )
             return bool(deleted)
-        attempts = await self.db_manager.execute_query(
-            "UPDATE password_otp SET attempts = attempts + 1 WHERE user_id = $1 RETURNING attempts",
-            (user_id,),
-            fetch_one=True,
-        )
-        if attempts and attempts["attempts"] >= config.otp_max_attempts:
+        if row["attempts"] >= config.otp_max_attempts:
             await self.discard(user_id)
         return False
 

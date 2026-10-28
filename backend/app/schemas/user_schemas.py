@@ -1,18 +1,33 @@
 # app/schemas/user_schemas.py
-from typing import List, Optional
+import re
+from typing import Annotated, List, Optional
 from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator
+from pydantic import AfterValidator, BaseModel, Field, field_validator
 
 from app.schemas.auth_schemas import AuthUser
 from app.schemas.workspace_schemas import WorkspaceRef
 
 _VALID_ROLES = {"admin", "operator", "viewer"}
+_EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
+
+
+def _email(value: str) -> str:
+    """name@host.tld, lower-cased. Looser than EmailStr on purpose: that one
+    refuses reserved domains such as .local and .test, which on-prem sites and
+    the bootstrap admin (admin@insighteye.local) actually use."""
+    value = value.strip().lower()
+    if len(value) > 254 or not _EMAIL.match(value):
+        raise ValueError("not a valid email address")
+    return value
+
+
+Email = Annotated[str, AfterValidator(_email)]
 
 
 class UserCreate(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    email: EmailStr
+    email: Email
     password: str = Field(..., min_length=8)
     full_name: Optional[str] = Field(None, max_length=120)
     role: str = "viewer"

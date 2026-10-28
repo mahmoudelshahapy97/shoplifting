@@ -20,6 +20,7 @@ from app.core.config import config
 from app.schemas.camera_schemas import CameraCreate, CameraResponse, CameraUpdate
 from app.services import media_service
 from app.services.camera_service import camera_service
+from app.services import rtsp_probe
 from app.services.rtsp_reader import grab_single_frame
 from app.services.stream_manager import stream_manager
 from app.utils.image_utils import encode_jpeg, placeholder_frame
@@ -125,6 +126,36 @@ async def camera_health(
             }
         )
     return create_response(True, f"{len(cameras)} camera(s).", {"cameras": cameras})
+
+
+def _probe_row(camera: Dict[str, Any], result: rtsp_probe.ProbeResult) -> Dict[str, Any]:
+    return {"camera_id": camera["camera_id"], "camera_name": camera["name"], **result.as_dict()}
+
+
+@router.post("/probe-all")
+async def probe_all_cameras(
+    current_user: Dict[str, Any] = Depends(require_role("operator")),
+    workspace_id: UUID = Depends(get_workspace_id),
+) -> List[Dict[str, Any]]:
+    """Open each enabled camera's stream briefly (a few at a time) and report
+    reachable or not, how long it took, resolution and fps. Running workers
+    are not touched."""
+    cameras = await camera_service.list_cameras(enabled_only=True, workspace_id=workspace_id)
+    results = await asyncio.gather(*(rtsp_probe.probe(c["rtsp_url"]) for c in cameras))
+    return [_probe_row(c, r) for c, r in zip(cameras, results)]
+
+
+@router.post("/{camera_id}/probe")
+async def probe_camera(
+    camera_id: UUID,
+    current_user: Dict[str, Any] = Depends(require_role("operator")),
+    workspace_id: UUID = Depends(get_workspace_id),
+) -> Dict[str, Any]:
+    await ensure_in_workspace("camera", camera_id, workspace_id, _NOT_FOUND)
+    camera = await camera_service.get_camera(camera_id)
+    if not camera:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=_NOT_FOUND)
+    return _probe_row(camera, await rtsp_probe.probe(camera["rtsp_url"]))
 
 
 @router.get("/{camera_id}", response_model=CameraResponse)

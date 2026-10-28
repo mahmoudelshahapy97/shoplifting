@@ -7,6 +7,7 @@ from logging.handlers import RotatingFileHandler
 from typing import Optional
 
 from app.core.config import config
+from app.core.observability import JsonFormatter, RequestIdFilter
 
 _MAX_BYTES = 10 * 1024 * 1024
 _BACKUP_COUNT = 5
@@ -19,10 +20,13 @@ def setup_logging(log_file_path: Optional[str] = None) -> None:
         return
 
     root.setLevel(getattr(logging, config.log_level.upper(), logging.INFO))
-    formatter = logging.Formatter(config.log_format)
+    formatter = JsonFormatter() if config.log_json else logging.Formatter(config.log_format)
+    # Stamps each record with the id of the request being handled (or "-").
+    request_ids = RequestIdFilter()
 
     console = logging.StreamHandler()
     console.setFormatter(formatter)
+    console.addFilter(request_ids)
     root.addHandler(console)
 
     path = log_file_path or config.log_file_path
@@ -35,6 +39,7 @@ def setup_logging(log_file_path: Optional[str] = None) -> None:
                 path, maxBytes=_MAX_BYTES, backupCount=_BACKUP_COUNT, encoding="utf-8"
             )
             file_handler.setFormatter(formatter)
+            file_handler.addFilter(request_ids)
             root.addHandler(file_handler)
         except OSError as e:
             root.warning("File logging disabled (%s): %s", path, e)

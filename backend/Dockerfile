@@ -37,11 +37,19 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 
-RUN mkdir -p /app/models /app/logs /app/.ultralytics
+# Runs as an unprivileged "app" user (uid 1000, the usual host owner of the
+# bind-mounted models/, logs/ and data/). The entrypoint starts as root only
+# to hand those mounts to that user, then drops privileges for good.
+RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin app \
+    && mkdir -p /app/models /app/logs /app/data /app/.ultralytics \
+    && chown -R app:app /app/models /app/logs /app/data /app/.ultralytics \
+    && chmod +x /app/docker-entrypoint.sh
 
 EXPOSE 8000
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--timeout-keep-alive", "300"]
+ENTRYPOINT ["/app/docker-entrypoint.sh"]
+# One worker process: camera workers are in-process tasks (see docker-compose.yml).
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1", "--timeout-keep-alive", "300"]

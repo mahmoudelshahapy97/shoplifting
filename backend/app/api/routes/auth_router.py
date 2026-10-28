@@ -8,22 +8,30 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request,
 
 from app.api.deps import get_current_user
 from app.core.config import config
+from app.core.ratelimit import SlidingWindow
 from app.core.security import validate_password_strength, verify_password
 from app.schemas.auth_schemas import (
     AuthUser,
     ChangePasswordRequest,
     ForgotPasswordRequest,
     LoginRequest,
+    ProfileUpdate,
     RefreshRequest,
     ResetPasswordRequest,
     TokenResponse,
 )
+from app.services.audit_service import audit_service, client_ip
 from app.services.auth_service import auth_service
 from app.services.otp_service import otp_service
 from app.services.user_service import user_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["auth"], prefix="/auth")
+
+# Failed sign-ins per (login name, address), and reset mails per address.
+login_failures = SlidingWindow(config.login_max_failures, config.login_failure_window_s)
+reset_requests = SlidingWindow(config.forgot_password_max_per_ip, config.forgot_password_window_s)
+_LOCKED = "Too many failed sign-ins. Try again in {seconds} s."
 
 
 def _set_auth_cookie(response: Response, access_token: str) -> None:
@@ -43,19 +51,28 @@ def _set_auth_cookie(response: Response, access_token: str) -> None:
 
 @router.post("/login", response_model=TokenResponse)
 async def login(payload: LoginRequest, request: Request, response: Response) -> Dict[str, Any]:
+    ip = client_ip(request)
+    user_agent = request.headers.get("user-agent")
+    key = f"{payload.username.strip().lower()}|{ip}"
+    login_failures.check(key, _LOCKED)
     try:
-        result = await auth_service.login(
-            payload.username,
-            payload.password,
-            user_agent=request.headers.get("user-agent"),
-            ip_address=request.client.host if request.client else None,
-        )
+        result = await auth_service.login(payload.username, payload.password, user_agent=user_agent, ip_address=ip)
         if not result:
+            login_failures.hit(key)
+            await audit_service.record(
+                "auth.login_failed", actor=payload.username.strip()[:120], status="failure",
+                ip=ip, user_agent=user_agent, request_id=getattr(request.state, "request_id", None),
+            )
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Invalid username, email or password."
             )
+        login_failures.reset(key)
         access_token, refresh_token, user = result
+        await audit_service.record(
+            "auth.login", user=user, target_type="user", target_id=user["user_id"],
+            ip=ip, user_agent=user_agent, request_id=getattr(request.state, "request_id", None),
+        )
         _set_auth_cookie(response, access_token)
         return {
             "access_token": access_token,
@@ -136,6 +153,17 @@ async def me(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[s
     return current_user
 
 
+@router.patch("/me", response_model=AuthUser)
+async def update_me(
+    payload: ProfileUpdate, current_user: Dict[str, Any] = Depends(get_current_user)
+) -> Dict[str, Any]:
+    """Self-service settings: whether new alerts are emailed to me."""
+    updated = await user_service.set_notify_email(current_user["user_id"], payload.notify_email)
+    if not updated:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Account not found.")
+    return updated
+
+
 @router.post("/change-password")
 async def change_password(
     payload: ChangePasswordRequest, current_user: Dict[str, Any] = Depends(get_current_user)
@@ -184,11 +212,18 @@ def _require_password_reset() -> None:
 @router.get("/options")
 async def auth_options() -> Dict[str, Any]:
     """What the login page may offer. Public: it reveals no account data."""
-    return {"password_reset": config.password_reset_enabled}
+    return {
+        "password_reset": config.password_reset_enabled,
+        # Whether alert emails go out at all, so the console only offers the
+        # personal switch when it means something.
+        "notify_email": config.password_reset_enabled,
+    }
 
 
 @router.post("/forgot-password")
-async def forgot_password(payload: ForgotPasswordRequest, background: BackgroundTasks) -> Dict[str, Any]:
+async def forgot_password(
+    payload: ForgotPasswordRequest, request: Request, background: BackgroundTasks
+) -> Dict[str, Any]:
     """Mail a one-time reset code to the account with this email.
 
     The answer is the same whether or not the account exists, is deactivated,
@@ -196,6 +231,10 @@ async def forgot_password(payload: ForgotPasswordRequest, background: Background
     after the response, so neither the message nor the timing tells them apart.
     """
     _require_password_reset()
+    # Per address: otherwise this mails every account in turn.
+    ip = client_ip(request) or "?"
+    reset_requests.check(ip, "Too many reset requests from this address. Try again in {seconds} s.")
+    reset_requests.hit(ip)
     message = _RESET_SENT.format(minutes=max(1, config.otp_ttl_seconds // 60))
     try:
         user = await user_service.find_by_email(payload.email)
@@ -209,7 +248,7 @@ async def forgot_password(payload: ForgotPasswordRequest, background: Background
 
 
 @router.post("/reset-password")
-async def reset_password(payload: ResetPasswordRequest) -> Dict[str, Any]:
+async def reset_password(payload: ResetPasswordRequest, request: Request) -> Dict[str, Any]:
     """Check the emailed code and set the new password in one step.
 
     Every session of the account is signed out, as on a password change.
@@ -227,6 +266,11 @@ async def reset_password(payload: ResetPasswordRequest) -> Dict[str, Any]:
         await user_service.set_password(user["user_id"], payload.new_password)
         await auth_service.logout_all(user["user_id"])
         logger.info("Password reset by emailed code for user %s", user["user_id"])
+        await audit_service.record(
+            "auth.password_reset", user=user, target_type="user", target_id=user["user_id"],
+            ip=client_ip(request), user_agent=request.headers.get("user-agent"),
+            data={"via": "emailed code"},
+        )
         return {"success": True, "message": "Password changed. Log in with the new password."}
     except HTTPException:
         raise

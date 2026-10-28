@@ -148,13 +148,13 @@ async def test_stored_hash_is_not_the_code(user):
 # ------------------------------------------------------------------- routes
 async def test_reset_is_off_without_smtp(api, database, monkeypatch):
     monkeypatch.setattr(config, "smtp_host", "")
-    assert (await api.get("/auth/options")).json() == {"password_reset": False}
+    assert (await api.get("/auth/options")).json()["password_reset"] is False
     response = await api.post("/auth/forgot-password", json={"email": "nobody@example.com"})
     assert response.status_code == 503
 
 
 async def test_full_reset_flow_signs_out_everywhere(user, api, mailer):
-    assert (await api.get("/auth/options")).json() == {"password_reset": True}
+    assert (await api.get("/auth/options")).json()["password_reset"] is True
     _, refresh_token, _ = await auth_service.login(user["username"], PASSWORD)
     old_access = create_access_token(user["user_id"], user["role"], user["token_version"])
 

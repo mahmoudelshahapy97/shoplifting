@@ -1,5 +1,8 @@
 # app/api/routes/event_router.py
+import csv
+import io
 import logging
+from datetime import datetime
 from typing import Any, Dict, Optional
 from uuid import UUID
 
@@ -16,6 +19,7 @@ from app.api.deps import (
 )
 from app.schemas.event_schemas import EventListResponse, EventResponse, EventUpdate
 from app.services.event_service import event_service
+from app.services.audit_service import csv_safe
 from app.services.filters import IncidentFilter
 from app.services.object_store import object_store
 from app.services.stream_manager import clip_root
@@ -43,6 +47,40 @@ async def list_events(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Could not list incidents."
         )
+
+
+EXPORT_LIMIT = 50_000
+_EXPORT_COLUMNS = [
+    "event_id", "detected_at", "camera_name", "severity", "confidence", "status", "detection_method",
+    "action_taken", "items_stolen", "estimated_value", "notes", "reviewed_at", "has_clip",
+]
+
+
+@router.get("/export.csv")
+async def export_events(
+    filters: IncidentFilter = Depends(get_incident_filter),
+    current_user: Dict[str, Any] = Depends(require_role("viewer")),
+) -> Response:
+    """The Incidents list's filters as CSV, newest first, up to 50,000 rows."""
+    page = await event_service.list_events(filters, page=1, per_page=EXPORT_LIMIT)
+    out = io.StringIO()
+    writer = csv.writer(out)
+    writer.writerow(_EXPORT_COLUMNS)
+    for event in page["events"]:
+        row = []
+        for column in _EXPORT_COLUMNS:
+            value = event.get(column)
+            if isinstance(value, datetime):
+                value = value.isoformat()
+            elif isinstance(value, list):
+                value = "; ".join(str(v) for v in value)
+            row.append(value)
+        writer.writerow(row)
+    return Response(
+        content=csv_safe(out.getvalue()),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="incidents.csv"'},
+    )
 
 
 @router.get("/stats")

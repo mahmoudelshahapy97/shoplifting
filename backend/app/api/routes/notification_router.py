@@ -1,72 +1,100 @@
 # app/api/routes/notification_router.py
-"""The caller's incident notifications: the bell's list, read marks, and the
-socket that pushes new ones (InsightEye's /ws/notifications).
+"""The caller's notifications: the bell's list, read marks, a test one, and
+the socket that pushes new ones.
 
-Notifications are addressed to an account, not to the active workspace, so
-these routes take no X-Workspace-Id: the bell shows every workspace the caller
-can see, and each row names its own.
+Notifications are addressed to an account, not the active workspace, so these
+routes take no X-Workspace-Id: the bell shows every workspace the caller can
+see, and each row names its own.
 """
 
 import asyncio
 import logging
 import time
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
+from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Depends, HTTPException, Query, WebSocket, WebSocketDisconnect, status
+from pydantic import BaseModel
 
-from app.api.deps import get_current_user, user_for_token
+from app.api.deps import _load_active_user, get_current_user
 from app.core.config import config
 from app.core.security import decode_token
-from app.schemas.notification_schemas import NotificationListResponse, NotificationReadRequest
-from app.services.notification_service import notification_service
-from app.utils.response import create_response
+from app.services.inbox_service import inbox_service
 
 logger = logging.getLogger(__name__)
 router = APIRouter(tags=["notifications"], prefix="/notifications")
 
-# The socket's close codes: 4401 is "authenticate again" (bad, expired or
-# revoked token), after which the console refreshes its token and reconnects.
+# 4401 is "authenticate again": a bad, expired or revoked token. The console
+# then refreshes its token through any HTTP call and reconnects.
 CLOSE_UNAUTHORIZED = 4401
 AUTH_TIMEOUT_S = 10.0
 
 
-@router.get("", response_model=NotificationListResponse)
+class ReadRequest(BaseModel):
+    notification_ids: Optional[List[UUID]] = None
+
+
+@router.get("")
 async def list_notifications(
     unread_only: bool = Query(False),
-    before: Optional[datetime] = Query(None, description="Only rows created before this; pages back"),
+    kind: Optional[str] = Query(None, max_length=40),
+    workspace_id: Optional[UUID] = Query(None),
     limit: int = Query(20, ge=1, le=100),
+    offset: int = Query(0, ge=0),
+    before: Optional[datetime] = Query(None, description="Only rows created before this; pages back"),
     current_user: Dict[str, Any] = Depends(get_current_user),
 ) -> Dict[str, Any]:
-    """The caller's notifications, newest first, with the unread count."""
-    user_id = current_user["user_id"]
-    return {
-        "notifications": await notification_service.list_for(user_id, limit, unread_only, before),
-        "unread": await notification_service.unread_count(user_id),
-    }
+    """The caller's notifications, newest first: {items, total, unread}."""
+    return await inbox_service.list_for(
+        current_user["user_id"],
+        unread_only=unread_only,
+        kind=kind,
+        workspace_id=workspace_id,
+        limit=limit,
+        offset=offset,
+        before=before,
+    )
 
 
 @router.get("/unread-count")
 async def unread_count(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
-    return create_response(
-        True, "Unread notifications.", {"unread": await notification_service.unread_count(current_user["user_id"])}
-    )
+    return {"unread": await inbox_service.unread_count(current_user["user_id"])}
 
 
 @router.post("/read")
-async def mark_read(
-    payload: NotificationReadRequest,
-    current_user: Dict[str, Any] = Depends(get_current_user),
-) -> Dict[str, Any]:
-    """Mark the listed notifications read, or all of them when none are listed.
-    Ids that are not the caller's, or already read, are ignored."""
+async def mark_read(payload: ReadRequest, current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    """Mark the listed notifications read, or all of them when none are listed."""
     user_id = current_user["user_id"]
-    changed = await notification_service.mark_read(user_id, payload.notification_ids)
-    return create_response(
-        True,
-        f"{changed} notification(s) marked read.",
-        {"marked": changed, "unread": await notification_service.unread_count(user_id)},
+    changed = await inbox_service.mark_read(user_id, payload.notification_ids)
+    return {"marked": len(changed), "unread": await inbox_service.unread_count(user_id)}
+
+
+@router.delete("/{notification_id}/read")
+async def mark_unread(notification_id: UUID, current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    user_id = current_user["user_id"]
+    if not await inbox_service.mark_unread(user_id, notification_id):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Notification not found.")
+    return {"unread": await inbox_service.unread_count(user_id)}
+
+
+@router.post("/test", status_code=status.HTTP_201_CREATED)
+async def send_test(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+    """A notification to yourself, to check the bell and the socket end to end."""
+    stored = await inbox_service.notify(
+        [current_user["user_id"]],
+        kind="system",
+        severity="info",
+        title="Test notification",
+        message="Notifications reach this console.",
+        link="/notifications",
     )
+    return {"sent": stored}
+
+
+async def _user_for(token: Optional[str]) -> Dict[str, Any]:
+    payload = decode_token(token, "access") if token else None
+    return await _load_active_user(payload)
 
 
 @router.websocket("/ws")
@@ -74,26 +102,18 @@ async def notification_socket(websocket: WebSocket) -> None:
     """Pushes the caller's new notifications as they are raised.
 
     The access token comes in the first message, ``{"type": "auth", "token":
-    ...}``, never in the URL (which proxies log) and never from the cookie
-    (which any site could make the browser send: cross-site WebSocket
-    hijacking). The server then sends:
-
-    - ``{"type": "hello", "unread": n}`` once authenticated;
-    - ``{"type": "notification", "notification": {...}}`` per new one;
-    - ``{"type": "read", "notification_ids": [...], "unread": n}`` when another
-      of the caller's consoles marks some read;
-    - ``{"type": "resync"}`` if this socket fell behind: refetch the list;
-    - ``{"type": "ping"}`` when idle.
-
-    It closes with 4401 when the token expires or the account is deactivated,
-    logged out everywhere or changes role.
+    ...}``: never in the URL (proxies log it) and never from the cookie (any
+    site could make the browser send it: cross-site WebSocket hijacking). The
+    server then sends ``hello {unread}``, then ``notification``, ``read``,
+    ``resync`` and ``ping`` messages, and closes with 4401 once the token
+    expires or the account is deactivated or signed out everywhere.
     """
     await websocket.accept()
     try:
         first = await asyncio.wait_for(websocket.receive_json(), timeout=AUTH_TIMEOUT_S)
         token = first.get("token") if isinstance(first, dict) and first.get("type") == "auth" else None
-        payload = decode_token(token, "access")
-        user = await user_for_token(token)
+        payload = decode_token(token, "access") if token else None
+        user = await _user_for(token)
     except WebSocketDisconnect:
         return
     except (asyncio.TimeoutError, ValueError, HTTPException):
@@ -101,13 +121,11 @@ async def notification_socket(websocket: WebSocket) -> None:
         return
 
     user_id = user["user_id"]
-    queue = notification_service.hub.subscribe(user_id)
-    # Anything the browser sends after auth is only a keep-alive; this task
-    # is here to notice the socket closing.
+    queue = inbox_service.hub.subscribe(user_id)
     receiver = asyncio.create_task(_drain(websocket))
     getter: Optional[asyncio.Task] = None
     try:
-        await websocket.send_json({"type": "hello", "unread": await notification_service.unread_count(user_id)})
+        await websocket.send_json({"type": "hello", "unread": await inbox_service.unread_count(user_id)})
         next_check = time.monotonic() + config.notification_ws_ping_s
         while True:
             getter = getter or asyncio.create_task(queue.get())
@@ -126,9 +144,9 @@ async def notification_socket(websocket: WebSocket) -> None:
                 break
             if time.monotonic() >= next_check:
                 # The same re-check every HTTP request gets: a deactivated or
-                # logged-out account stops hearing about incidents.
+                # signed-out account stops hearing about alerts.
                 try:
-                    await user_for_token(token)
+                    await _user_for(token)
                 except HTTPException:
                     await websocket.close(code=CLOSE_UNAUTHORIZED, reason="Session ended.")
                     break
@@ -137,13 +155,15 @@ async def notification_socket(websocket: WebSocket) -> None:
     except (WebSocketDisconnect, RuntimeError):
         pass  # the browser went away mid-send
     finally:
-        notification_service.hub.unsubscribe(user_id, queue)
+        inbox_service.hub.unsubscribe(user_id, queue)
         for task in (getter, receiver):
             if task is not None:
                 task.cancel()
 
 
 async def _drain(websocket: WebSocket) -> None:
+    """Anything the browser sends after auth is only a keep-alive; this is
+    here to notice the socket closing."""
     try:
         while True:
             await websocket.receive_text()
